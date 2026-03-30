@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Simple Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+
+    header {
+      background: #333;
+      color: white;
+      padding: 15px;
+    }
+
+    main {
+      padding: 40px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background: #007BFF;
+      color: white;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    #message {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>My Simple Page</h1>
+  </header>
+
+  <main>
+    <p>Click the button to see a message:</p>
+    <button onclick="showMessage()">Click Me</button>
+    <div id="message"></div>
+  </main>
+
+  <script>
+    function showMessage() {
+      const messages = [
+        "Hello there!",
+        "Welcome 👋",
+        "You clicked the button!",
+        "Have a great day!",
+        "JavaScript is working 🎉"
+      ];
+
+      const randomIndex = Math.floor(Math.random() * messages.length);
+      document.getElementById("message").textContent = messages[randomIndex];
+    }
+  </script>
+
+</body>
+</html>
