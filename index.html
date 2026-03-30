@@ -1,74 +1,107 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Simple Page</title>
+  <meta charset="UTF-8" />
+  <title>Excel to Graph</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f4f4;
-      text-align: center;
-      margin: 0;
-      padding: 0;
-    }
-
-    header {
-      background: #333;
-      color: white;
-      padding: 15px;
-    }
-
-    main {
-      padding: 40px;
-    }
-
-    button {
-      padding: 10px 20px;
-      font-size: 16px;
-      border: none;
-      border-radius: 8px;
-      background: #007BFF;
-      color: white;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #0056b3;
-    }
-
-    #message {
-      margin-top: 20px;
-      font-size: 18px;
-      color: #333;
-    }
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    #container { max-width: 800px; margin: auto; }
+    #fileInput { margin-bottom: 20px; }
+    canvas { max-width: 100%; }
   </style>
 </head>
 <body>
+  <div id="container">
+    <h1>Excel → Graph</h1>
+    <p>Select an Excel file (.xlsx). The first sheet’s first two columns will be plotted.</p>
 
-  <header>
-    <h1>My Simple Page</h1>
-  </header>
-
-  <main>
-    <p>Click the button to see a message:</p>
-    <button onclick="showMessage()">Click Me</button>
-    <div id="message"></div>
-  </main>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" />
+    <p id="status"></p>
+    <canvas id="chartCanvas"></canvas>
+  </div>
 
   <script>
-    function showMessage() {
-      const messages = [
-        "Hello there!",
-        "Welcome 👋",
-        "You clicked the button!",
-        "Have a great day!",
-        "JavaScript is working 🎉"
-      ];
+    const fileInput = document.getElementById('fileInput');
+    const statusEl = document.getElementById('status');
+    const ctx = document.getElementById('chartCanvas').getContext('2d');
+    let chart;
 
-      const randomIndex = Math.floor(Math.random() * messages.length);
-      document.getElementById("message").textContent = messages[randomIndex];
+    fileInput.addEventListener('change', handleFile, false);
+
+    function handleFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      statusEl.textContent = 'Reading file...';
+
+      const reader = new FileReader();
+      reader.onload = function (event) {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        // Convert sheet to JSON (array of rows)
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (jsonData.length < 2) {
+          statusEl.textContent = 'Not enough data in sheet.';
+          return;
+        }
+
+        // Assume first row is header, first two columns are X and Y
+        const header = jsonData[0];
+        const rows = jsonData.slice(1).filter(r => r[0] !== undefined && r[1] !== undefined);
+
+        const labels = rows.map(r => r[0]);
+        const values = rows.map(r => Number(r[1]));
+
+        statusEl.textContent = `Loaded sheet: ${firstSheetName} | Rows: ${rows.length}`;
+
+        drawChart(header[0] || 'X', header[1] || 'Y', labels, values);
+      };
+
+      reader.onerror = function () {
+        statusEl.textContent = 'Error reading file.';
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
+
+    function drawChart(xLabel, yLabel, labels, data) {
+      if (chart) {
+        chart.destroy();
+      }
+
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: yLabel,
+            data: data,
+            borderColor: 'rgba(75, 192, 192, 1)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.2,
+            pointRadius: 3
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: {
+              title: { display: true, text: xLabel }
+            },
+            y: {
+              title: { display: true, text: yLabel }
+            }
+          }
+        }
+      });
     }
   </script>
-
 </body>
 </html>
