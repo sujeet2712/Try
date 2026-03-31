@@ -2,23 +2,91 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Excel to Graph</title>
+  <title>Excel Graph Viewer</title>
+
+  <!-- Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <!-- Modern UI Styling -->
   <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    #container { max-width: 800px; margin: auto; }
-    #fileInput { margin-bottom: 20px; }
-    canvas { max-width: 100%; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: linear-gradient(135deg, #0f172a, #1e293b);
+      color: #e2e8f0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 900px;
+      background: rgba(255, 255, 255, 0.06);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    h1 {
+      margin-top: 0;
+      font-weight: 600;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+
+    .upload-box {
+      border: 2px dashed rgba(255,255,255,0.25);
+      padding: 30px;
+      border-radius: 12px;
+      text-align: center;
+      transition: 0.3s;
+      cursor: pointer;
+    }
+
+    .upload-box:hover {
+      border-color: #38bdf8;
+      background: rgba(255,255,255,0.08);
+    }
+
+    #fileInput {
+      display: none;
+    }
+
+    #status {
+      margin-top: 10px;
+      text-align: center;
+      font-size: 14px;
+      opacity: 0.8;
+    }
+
+    canvas {
+      margin-top: 30px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 20px;
+    }
   </style>
 </head>
+
 <body>
-  <div id="container">
-    <h1>Excel → Graph</h1>
-    <p>Select an Excel file (.xlsx). The first sheet’s first two columns will be plotted.</p>
+  <div class="card">
+    <h1>Excel → Graph Viewer</h1>
+
+    <label class="upload-box" for="fileInput">
+      <strong>Click to upload Excel file</strong><br>
+      <span style="font-size: 13px; opacity: 0.7;">Supports .xlsx / .xls</span>
+    </label>
 
     <input type="file" id="fileInput" accept=".xlsx,.xls" />
     <p id="status"></p>
+
     <canvas id="chartCanvas"></canvas>
   </div>
 
@@ -44,7 +112,6 @@
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
 
-        // Convert sheet to JSON (array of rows)
         const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
         if (jsonData.length < 2) {
@@ -52,7 +119,6 @@
           return;
         }
 
-        // Assume first row is header, first two columns are X and Y
         const header = jsonData[0];
         const rows = jsonData.slice(1).filter(r => r[0] !== undefined && r[1] !== undefined);
 
@@ -64,40 +130,33 @@
         drawChart(header[0] || 'X', header[1] || 'Y', labels, values);
       };
 
-      reader.onerror = function () {
-        statusEl.textContent = 'Error reading file.';
-      };
-
       reader.readAsArrayBuffer(file);
     }
 
     function drawChart(xLabel, yLabel, labels, data) {
-      if (chart) {
-        chart.destroy();
-      }
+      if (chart) chart.destroy();
 
       chart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: labels,
+          labels,
           datasets: [{
             label: yLabel,
-            data: data,
-            borderColor: 'rgba(75, 192, 192, 1)',
-            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-            tension: 0.2,
+            data,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56,189,248,0.25)',
+            tension: 0.25,
             pointRadius: 3
           }]
         },
         options: {
           responsive: true,
           scales: {
-            x: {
-              title: { display: true, text: xLabel }
-            },
-            y: {
-              title: { display: true, text: yLabel }
-            }
+            x: { title: { display: true, text: xLabel, color: '#e2e8f0' } },
+            y: { title: { display: true, text: yLabel, color: '#e2e8f0' } }
+          },
+          plugins: {
+            legend: { labels: { color: '#e2e8f0' } }
           }
         }
       });
