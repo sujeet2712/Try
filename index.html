@@ -1,23 +1,23 @@
 <div style="display:flex; gap:20px; flex-wrap:wrap;">
 
-  <div class="stockBox" id="box-AAPL">
+  <div class="stockBox">
     <h3>AAPL</h3>
-    <p class="price" id="price-AAPL">Loading...</p>
+    <p class="price" id="AAPL">Loading...</p>
   </div>
 
-  <div class="stockBox" id="box-TSLA">
+  <div class="stockBox">
     <h3>TSLA</h3>
-    <p class="price" id="price-TSLA">Loading...</p>
+    <p class="price" id="TSLA">Loading...</p>
   </div>
 
-  <div class="stockBox" id="box-AMZN">
+  <div class="stockBox">
     <h3>AMZN</h3>
-    <p class="price" id="price-AMZN">Loading...</p>
+    <p class="price" id="AMZN">Loading...</p>
   </div>
 
-  <div class="stockBox" id="box-XAUUSD">
+  <div class="stockBox">
     <h3>XAUUSD</h3>
-    <p class="price" id="price-XAUUSD">Loading...</p>
+    <p class="price" id="XAUUSD">Loading...</p>
   </div>
 
 </div>
@@ -46,29 +46,31 @@
 </style>
 
 <script>
-  const API_KEY = "YOUR_API_KEY";
-
   const symbols = ["AAPL", "TSLA", "AMZN", "XAUUSD"];
 
-  async function loadPrice(symbol) {
-    const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`;
-    const res = await fetch(url);
-    const data = await res.json();
+  async function loadPrices() {
+    const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols.join(",")}`;
 
-    const price = data["Global Quote"]?.["05. price"];
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
 
-    if (price) {
-      document.getElementById("price-" + symbol).textContent =
-        "$" + Number(price).toFixed(2);
-    } else {
-      document.getElementById("price-" + symbol).textContent = "N/A";
+      data.quoteResponse.result.forEach(item => {
+        const price = item.regularMarketPrice;
+        const id = item.symbol;
+
+        if (price !== undefined) {
+          document.getElementById(id).textContent = "$" + price.toFixed(2);
+        } else {
+          document.getElementById(id).textContent = "N/A";
+        }
+      });
+
+    } catch (err) {
+      console.log("Error fetching Yahoo Finance data:", err);
     }
   }
 
-  function refreshAll() {
-    symbols.forEach(loadPrice);
-  }
-
-  refreshAll();
-  setInterval(refreshAll, 30000); // refresh every 30 seconds
+  loadPrices();
+  setInterval(loadPrices, 30000); // refresh every 30 seconds
 </script>
