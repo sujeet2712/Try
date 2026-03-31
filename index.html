@@ -75,12 +75,15 @@
     const lastPrices = {};
 
     async function loadPrices() {
-      const url =
-        "https://cors.isomorphic-git.org/https://query1.finance.yahoo.com/v7/finance/quote?symbols=" +
+      const yahooURL =
+        "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" +
         symbols.join(",");
 
+      const proxyURL =
+        "https://api.allorigins.win/raw?url=" + encodeURIComponent(yahooURL);
+
       try {
-        const res = await fetch(url);
+        const res = await fetch(proxyURL);
         const data = await res.json();
 
         data.quoteResponse.result.forEach(item => {
