@@ -1,322 +1,202 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Chart Pattern Helper – Screenshot Analyzer</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #eee;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-    header {
-      padding: 10px 16px;
-      background: #181818;
-      border-bottom: 1px solid #333;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-    header h1 {
-      font-size: 18px;
-      margin: 0;
-      font-weight: 600;
-    }
-    .controls {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-    }
-    input[type="file"] {
-      color: #eee;
-    }
-    button {
-      background: #333;
-      color: #eee;
-      border: 1px solid #555;
-      padding: 6px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 13px;
-    }
-    button.active {
-      background: #007bff;
-      border-color: #007bff;
-    }
-    button:disabled {
-      opacity: 0.4;
-      cursor: default;
-    }
-    #info {
-      font-size: 12px;
-      color: #aaa;
-    }
-    main {
-      flex: 1;
-      display: flex;
-      background: #000;
-    }
-    #canvasContainer {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      background: #000;
-    }
-    canvas {
-      background: #000;
-      max-width: 100%;
-      max-height: 100%;
-      border: 1px solid #333;
-    }
-    #sidePanel {
-      width: 260px;
-      border-left: 1px solid #333;
-      padding: 10px;
-      box-sizing: border-box;
-      background: #141414;
-      font-size: 13px;
-    }
-    #sidePanel h2 {
-      font-size: 14px;
-      margin-top: 0;
-      margin-bottom: 8px;
-    }
-    .fib-level {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 4px;
-    }
-    .fib-label {
-      color: #ccc;
-    }
-    .fib-value {
-      color: #fff;
-    }
-    .hint {
-      color: #888;
-      font-size: 12px;
-      margin-top: 8px;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Auto Trendline & Swing Detection</title>
+<style>
+  body {
+    margin: 0;
+    background: #111;
+    color: #eee;
+    font-family: Arial, sans-serif;
+  }
+  header {
+    padding: 10px;
+    background: #181818;
+    border-bottom: 1px solid #333;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  input[type="file"] {
+    color: #eee;
+  }
+  button {
+    background: #333;
+    color: #eee;
+    border: 1px solid #555;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  button.active {
+    background: #007bff;
+    border-color: #007bff;
+  }
+  #canvasContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: calc(100vh - 60px);
+    background: #000;
+  }
+  canvas {
+    border: 1px solid #333;
+    max-width: 100%;
+    max-height: 100%;
+  }
+</style>
 </head>
 <body>
 
 <header>
-  <h1>Chart Pattern Helper</h1>
-  <div class="controls">
-    <input type="file" id="imageInput" accept="image/*">
-    <button id="modeTrend">Trendline</button>
-    <button id="modeFib">Fibonacci</button>
-    <button id="clearBtn">Clear Lines</button>
-    <span id="info">Upload a chart screenshot, then choose a mode and click two points.</span>
-  </div>
+  <input type="file" id="imgInput" accept="image/*">
+  <button id="detectBtn">Auto Detect</button>
+  <button id="toggleSwings">Toggle Swings</button>
+  <button id="toggleTrend">Toggle Trendlines</button>
 </header>
 
-<main>
-  <div id="canvasContainer">
-    <canvas id="chartCanvas"></canvas>
-  </div>
-  <aside id="sidePanel">
-    <h2>Fibonacci Levels</h2>
-    <div id="fibList">
-      <div class="hint">Draw a Fibonacci range by selecting two points in Fib mode.</div>
-    </div>
-    <div class="hint">
-      Tips:<br>
-      – Use <b>Trendline</b> mode to mark trends.<br>
-      – Use <b>Fibonacci</b> mode to mark swing high/low.<br>
-      – All analysis is done locally in your browser.
-    </div>
-  </aside>
-</main>
+<div id="canvasContainer">
+  <canvas id="chartCanvas"></canvas>
+</div>
 
 <script>
-  const canvas = document.getElementById('chartCanvas');
-  const ctx = canvas.getContext('2d');
-  const imageInput = document.getElementById('imageInput');
-  const modeTrendBtn = document.getElementById('modeTrend');
-  const modeFibBtn = document.getElementById('modeFib');
-  const clearBtn = document.getElementById('clearBtn');
-  const fibList = document.getElementById('fibList');
+const canvas = document.getElementById("chartCanvas");
+const ctx = canvas.getContext("2d");
 
-  let img = new Image();
-  let imgLoaded = false;
-  let currentMode = null; // 'trend' or 'fib'
-  let clickPoints = [];   // store two points for current operation
-  let lines = [];         // store drawn lines
-  let fibRanges = [];     // store fib ranges
+let img = new Image();
+let imgLoaded = false;
 
-  function setMode(mode) {
-    currentMode = mode;
-    modeTrendBtn.classList.toggle('active', mode === 'trend');
-    modeFibBtn.classList.toggle('active', mode === 'fib');
-    clickPoints = [];
-  }
+let swingHighs = [];
+let swingLows = [];
+let trendlines = [];
 
-  modeTrendBtn.addEventListener('click', () => setMode('trend'));
-  modeFibBtn.addEventListener('click', () => setMode('fib'));
+let showSwings = true;
+let showTrend = true;
 
-  clearBtn.addEventListener('click', () => {
-    lines = [];
-    fibRanges = [];
-    clickPoints = [];
-    fibList.innerHTML = '<div class="hint">Draw a Fibonacci range by selecting two points in Fib mode.</div>';
-    redraw();
-  });
+document.getElementById("imgInput").addEventListener("change", loadImage);
+document.getElementById("detectBtn").addEventListener("click", autoDetect);
+document.getElementById("toggleSwings").addEventListener("click", () => {
+  showSwings = !showSwings;
+  redraw();
+});
+document.getElementById("toggleTrend").addEventListener("click", () => {
+  showTrend = !showTrend;
+  redraw();
+});
 
-  imageInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(ev) {
-      img = new Image();
-      img.onload = function() {
-        imgLoaded = true;
-        resizeCanvasToImage();
-        redraw();
-      };
-      img.src = ev.target.result;
+function loadImage(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    img = new Image();
+    img.onload = function() {
+      imgLoaded = true;
+      canvas.width = img.width;
+      canvas.height = img.height;
+      ctx.drawImage(img, 0, 0);
     };
-    reader.readAsDataURL(file);
-  });
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
 
-  function resizeCanvasToImage() {
-    const container = document.getElementById('canvasContainer');
-    const maxW = container.clientWidth - 20;
-    const maxH = container.clientHeight - 20;
-    let w = img.width;
-    let h = img.height;
-    const ratio = Math.min(maxW / w, maxH / h, 1);
-    canvas.width = w * ratio;
-    canvas.height = h * ratio;
-  }
+function autoDetect() {
+  if (!imgLoaded) return;
 
-  function redraw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (imgLoaded) {
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    }
-    // draw stored lines
-    ctx.lineWidth = 2;
-    lines.forEach(line => {
-      ctx.strokeStyle = line.color;
-      ctx.beginPath();
-      ctx.moveTo(line.x1, line.y1);
-      ctx.lineTo(line.x2, line.y2);
-      ctx.stroke();
-    });
-    // draw fib ranges
-    fibRanges.forEach(range => {
-      drawFibRange(range);
-    });
-  }
+  const w = canvas.width;
+  const h = canvas.height;
 
-  function canvasCoords(evt) {
-    const rect = canvas.getBoundingClientRect();
-    return {
-      x: (evt.clientX - rect.left),
-      y: (evt.clientY - rect.top)
-    };
-  }
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const data = imgData.data;
 
-  canvas.addEventListener('click', (evt) => {
-    if (!imgLoaded || !currentMode) return;
-    const pt = canvasCoords(evt);
-    clickPoints.push(pt);
-    if (clickPoints.length === 2) {
-      const [p1, p2] = clickPoints;
-      if (currentMode === 'trend') {
-        lines.push({
-          x1: p1.x, y1: p1.y,
-          x2: p2.x, y2: p2.y,
-          color: '#00ff88'
-        });
-      } else if (currentMode === 'fib') {
-        const range = {
-          x1: p1.x, y1: p1.y,
-          x2: p2.x, y2: p2.y
-        };
-        fibRanges.push(range);
-        updateFibPanel(range);
+  swingHighs = [];
+  swingLows = [];
+
+  // Scan vertical slices
+  for (let x = 0; x < w; x += 8) {
+    let maxY = 0;
+    let minY = h - 1;
+    let maxVal = -1;
+    let minVal = 9999;
+
+    for (let y = 0; y < h; y++) {
+      const idx = (y * w + x) * 4;
+      const brightness = data[idx] + data[idx+1] + data[idx+2];
+
+      if (brightness > maxVal) {
+        maxVal = brightness;
+        maxY = y;
       }
-      clickPoints = [];
-      redraw();
+      if (brightness < minVal) {
+        minVal = brightness;
+        minY = y;
+      }
     }
+
+    swingHighs.push({ x, y: maxY });
+    swingLows.push({ x, y: minY });
+  }
+
+  // Build trendlines
+  trendlines = [];
+  buildTrendlines();
+
+  redraw();
+}
+
+function buildTrendlines() {
+  if (swingHighs.length < 2 || swingLows.length < 2) return;
+
+  // Connect highest highs
+  const sortedHighs = [...swingHighs].sort((a,b) => a.y - b.y);
+  trendlines.push({
+    x1: sortedHighs[0].x,
+    y1: sortedHighs[0].y,
+    x2: sortedHighs[1].x,
+    y2: sortedHighs[1].y,
+    color: "#00ff88"
   });
 
-  function drawFibRange(range) {
-    const { x1, y1, x2, y2 } = range;
-    const minY = Math.min(y1, y2);
-    const maxY = Math.max(y1, y2);
-    const levels = [0, 0.236, 0.382, 0.5, 0.618, 1];
+  // Connect lowest lows
+  const sortedLows = [...swingLows].sort((a,b) => b.y - a.y);
+  trendlines.push({
+    x1: sortedLows[0].x,
+    y1: sortedLows[0].y,
+    x2: sortedLows[1].x,
+    y2: sortedLows[1].y,
+    color: "#ff0088"
+  });
+}
 
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(255, 215, 0, 0.8)';
-    ctx.fillStyle = 'rgba(255, 215, 0, 0.8)';
-    ctx.font = '11px Arial';
+function redraw() {
+  if (!imgLoaded) return;
+  ctx.drawImage(img, 0, 0);
 
-    levels.forEach(level => {
-      const y = maxY - (maxY - minY) * level;
+  if (showSwings) {
+    ctx.fillStyle = "yellow";
+    swingHighs.forEach(p => {
+      ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+    });
+    ctx.fillStyle = "cyan";
+    swingLows.forEach(p => {
+      ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+    });
+  }
+
+  if (showTrend) {
+    trendlines.forEach(t => {
+      ctx.strokeStyle = t.color;
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(canvas.width, y);
+      ctx.moveTo(t.x1, t.y1);
+      ctx.lineTo(t.x2, t.y2);
       ctx.stroke();
-
-      ctx.fillText((level * 100).toFixed(1) + '%', 5, y - 2);
-    });
-
-    // vertical markers at x1 and x2
-    ctx.strokeStyle = 'rgba(0, 150, 255, 0.8)';
-    ctx.beginPath();
-    ctx.moveTo(x1, 0);
-    ctx.lineTo(x1, canvas.height);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(x2, 0);
-    ctx.lineTo(x2, canvas.height);
-    ctx.stroke();
-  }
-
-  function updateFibPanel(range) {
-    const { y1, y2 } = range;
-    const minY = Math.min(y1, y2);
-    const maxY = Math.max(y1, y2);
-    const levels = [
-      { label: '0.0%', v: 0 },
-      { label: '23.6%', v: 0.236 },
-      { label: '38.2%', v: 0.382 },
-      { label: '50.0%', v: 0.5 },
-      { label: '61.8%', v: 0.618 },
-      { label: '100%', v: 1 }
-    ];
-
-    fibList.innerHTML = '';
-    levels.forEach(l => {
-      const y = maxY - (maxY - minY) * l.v;
-      const row = document.createElement('div');
-      row.className = 'fib-level';
-      const label = document.createElement('span');
-      label.className = 'fib-label';
-      label.textContent = l.label;
-      const value = document.createElement('span');
-      value.className = 'fib-value';
-      value.textContent = 'y = ' + y.toFixed(1) + ' px';
-      row.appendChild(label);
-      row.appendChild(value);
-      fibList.appendChild(row);
     });
   }
-
-  // default mode hint
-  setMode(null);
+}
 </script>
 
 </body>
