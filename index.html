@@ -2,38 +2,37 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Live Market Dashboard</title>
+  <title>Live Gold Price (XAUUSD)</title>
 
   <style>
     body {
       margin: 0;
-      padding: 20px;
+      padding: 40px;
       font-family: Inter, Arial, sans-serif;
       background: #f5f5f5;
-    }
-    .container {
-      display: flex;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-    .stockBox {
-      width: 180px;
-      padding: 15px;
-      background: #ffffff;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       text-align: center;
     }
-    .stockBox h3 {
+
+    .goldBox {
+      width: 260px;
+      margin: auto;
+      padding: 25px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+
+    h2 {
       margin: 0;
-      font-size: 20px;
-      font-weight: 600;
+      font-size: 26px;
+      font-weight: 700;
       color: black;
     }
+
     .price {
-      font-size: 22px;
+      font-size: 40px;
       font-weight: bold;
-      margin-top: 8px;
+      margin-top: 15px;
       color: black;
       transition: color 0.3s ease;
     }
@@ -42,44 +41,26 @@
 
 <body>
 
-  <h1 style="font-weight:600; color:black;">📈 Live Market Dashboard</h1>
+  <h1 style="color:black; font-weight:700;">Live Gold Price</h1>
 
-  <div class="container">
-    <div class="stockBox">
-      <h3>AAPL</h3>
-      <p class="price" id="AAPL">Loading...</p>
-    </div>
-
-    <div class="stockBox">
-      <h3>TSLA</h3>
-      <p class="price" id="TSLA">Loading...</p>
-    </div>
-
-    <div class="stockBox">
-      <h3>AMZN</h3>
-      <p class="price" id="AMZN">Loading...</p>
-    </div>
-
-    <div class="stockBox">
-      <h3>XAUUSD</h3>
-      <p class="price" id="XAUUSD">Loading...</p>
-    </div>
+  <div class="goldBox">
+    <h2>XAUUSD</h2>
+    <p class="price" id="goldPrice">Loading...</p>
   </div>
 
   <script>
     const API_KEY = "YOUR_API_KEY";
-    const symbols = ["AAPL", "TSLA", "AMZN", "XAUUSD"];
-    const lastPrices = {};
+    let lastPrice = null;
 
-    async function loadPrice(symbol) {
-      const url = `https://api.twelvedata.com/price?symbol=${symbol}&apikey=${API_KEY}`;
+    async function loadGold() {
+      const url = `https://api.twelvedata.com/price?symbol=XAUUSD&apikey=${beffb05aa1b344ff8e85aea784a6e1b0}`;
 
       try {
         const res = await fetch(url);
         const data = await res.json();
 
         const price = parseFloat(data.price);
-        const el = document.getElementById(symbol);
+        const el = document.getElementById("goldPrice");
 
         if (!price) {
           el.textContent = "N/A";
@@ -89,25 +70,22 @@
 
         el.textContent = "$" + price.toFixed(2);
 
-        if (lastPrices[symbol] !== undefined) {
-          if (price > lastPrices[symbol]) el.style.color = "green";
-          else if (price < lastPrices[symbol]) el.style.color = "red";
+        // Green/red color change
+        if (lastPrice !== null) {
+          if (price > lastPrice) el.style.color = "green";
+          else if (price < lastPrice) el.style.color = "red";
           else el.style.color = "black";
         }
 
-        lastPrices[symbol] = price;
+        lastPrice = price;
 
       } catch (err) {
         console.log("Error:", err);
       }
     }
 
-    function refreshAll() {
-      symbols.forEach(loadPrice);
-    }
-
-    refreshAll();
-    setInterval(refreshAll, 30000);
+    loadGold();
+    setInterval(loadGold, 1000); // refresh every 1 second
   </script>
 
 </body>
