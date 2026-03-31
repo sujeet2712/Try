@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Live Gold Price (XAUUSD)</title>
+  <title>Live Gold Price (XAU/USD)</title>
 
   <style>
     body {
@@ -36,6 +36,12 @@
       color: black;
       transition: color 0.3s ease;
     }
+
+    #error {
+      margin-top: 20px;
+      color: red;
+      font-size: 14px;
+    }
   </style>
 </head>
 
@@ -44,23 +50,37 @@
   <h1 style="color:black; font-weight:700;">Live Gold Price</h1>
 
   <div class="goldBox">
-    <h2>XAUUSD</h2>
+    <h2>XAU/USD</h2>
     <p class="price" id="goldPrice">Loading...</p>
   </div>
 
+  <p id="error"></p>
+
   <script>
-    const API_KEY = "YOUR_API_KEY";
+    const API_KEY = "beffb05aa1b344ff8e85aea784a6e1b0";
     let lastPrice = null;
 
     async function loadGold() {
-      const url = `https://api.twelvedata.com/price?symbol=XAUUSD&apikey=${beffb05aa1b344ff8e85aea784a6e1b0}`;
+      const url = `https://api.twelvedata.com/price?symbol=XAU/USD&apikey=${API_KEY}`;
 
       try {
         const res = await fetch(url);
         const data = await res.json();
 
-        const price = parseFloat(data.price);
         const el = document.getElementById("goldPrice");
+        const err = document.getElementById("error");
+
+        // Show API errors
+        if (data.status === "error") {
+          err.textContent = "API Error: " + data.message;
+          el.textContent = "N/A";
+          el.style.color = "black";
+          return;
+        }
+
+        err.textContent = "";
+
+        const price = parseFloat(data.price);
 
         if (!price) {
           el.textContent = "N/A";
@@ -80,7 +100,8 @@
         lastPrice = price;
 
       } catch (err) {
-        console.log("Error:", err);
+        document.getElementById("error").textContent =
+          "Network Error: " + err.message;
       }
     }
 
