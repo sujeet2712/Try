@@ -2,165 +2,167 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Excel Graph Viewer</title>
+  <title>My Finance Tracker</title>
 
-  <!-- Libraries -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
-  <!-- Modern UI Styling -->
   <style>
     body {
       margin: 0;
       padding: 0;
       font-family: Inter, Arial, sans-serif;
-      background: linear-gradient(135deg, #0f172a, #1e293b);
+      background: #0f172a;
       color: #e2e8f0;
       display: flex;
       justify-content: center;
-      align-items: flex-start;
-      min-height: 100vh;
       padding: 40px 20px;
     }
 
     .card {
       width: 100%;
       max-width: 900px;
-      background: rgba(255, 255, 255, 0.06);
+      background: rgba(255,255,255,0.06);
       backdrop-filter: blur(12px);
       border-radius: 16px;
       padding: 32px;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
       border: 1px solid rgba(255,255,255,0.1);
     }
 
     h1 {
+      text-align: center;
       margin-top: 0;
       font-weight: 600;
-      text-align: center;
-      letter-spacing: 0.5px;
     }
 
-    .upload-box {
-      border: 2px dashed rgba(255,255,255,0.25);
-      padding: 30px;
-      border-radius: 12px;
-      text-align: center;
-      transition: 0.3s;
+    .row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    input, select {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      background: rgba(255,255,255,0.1);
+      color: #e2e8f0;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      background: #38bdf8;
+      color: #0f172a;
+      font-weight: bold;
       cursor: pointer;
     }
 
-    .upload-box:hover {
-      border-color: #38bdf8;
-      background: rgba(255,255,255,0.08);
+    table {
+      width: 100%;
+      margin-top: 20px;
+      border-collapse: collapse;
     }
 
-    #fileInput {
-      display: none;
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      text-align: left;
     }
 
-    #status {
-      margin-top: 10px;
-      text-align: center;
-      font-size: 14px;
-      opacity: 0.8;
-    }
-
-    canvas {
-      margin-top: 30px;
-      background: rgba(255,255,255,0.05);
-      border-radius: 12px;
-      padding: 20px;
+    .summary {
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: 600;
     }
   </style>
 </head>
 
 <body>
   <div class="card">
-    <h1>Excel → Graph Viewer</h1>
+    <h1>💰 My Finance Tracker</h1>
 
-    <label class="upload-box" for="fileInput">
-      <strong>Click to upload Excel file</strong><br>
-      <span style="font-size: 13px; opacity: 0.7;">Supports .xlsx / .xls</span>
-    </label>
+    <div class="row">
+      <input id="desc" placeholder="Description (e.g., Paid rent, Received payment)" />
+      <input id="amount" type="number" placeholder="Amount" />
+      <select id="type">
+        <option value="in">Money In</option>
+        <option value="out">Money Out</option>
+      </select>
+      <button onclick="addEntry()">Add</button>
+    </div>
 
-    <input type="file" id="fileInput" accept=".xlsx,.xls" />
-    <p id="status"></p>
+    <div class="summary">
+      Total In: <span id="totalIn">0</span> |
+      Total Out: <span id="totalOut">0</span> |
+      Balance: <span id="balance">0</span>
+    </div>
 
-    <canvas id="chartCanvas"></canvas>
+    <table>
+      <thead>
+        <tr>
+          <th>Description</th>
+          <th>Amount</th>
+          <th>Type</th>
+          <th>Remove</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
   </div>
 
   <script>
-    const fileInput = document.getElementById('fileInput');
-    const statusEl = document.getElementById('status');
-    const ctx = document.getElementById('chartCanvas').getContext('2d');
-    let chart;
+    let data = JSON.parse(localStorage.getItem("financeData") || "[]");
 
-    fileInput.addEventListener('change', handleFile, false);
-
-    function handleFile(e) {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      statusEl.textContent = 'Reading file...';
-
-      const reader = new FileReader();
-      reader.onload = function (event) {
-        const data = new Uint8Array(event.target.result);
-        const workbook = XLSX.read(data, { type: 'array' });
-
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-
-        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
-
-        if (jsonData.length < 2) {
-          statusEl.textContent = 'Not enough data in sheet.';
-          return;
-        }
-
-        const header = jsonData[0];
-        const rows = jsonData.slice(1).filter(r => r[0] !== undefined && r[1] !== undefined);
-
-        const labels = rows.map(r => r[0]);
-        const values = rows.map(r => Number(r[1]));
-
-        statusEl.textContent = `Loaded sheet: ${firstSheetName} | Rows: ${rows.length}`;
-
-        drawChart(header[0] || 'X', header[1] || 'Y', labels, values);
-      };
-
-      reader.readAsArrayBuffer(file);
+    function save() {
+      localStorage.setItem("financeData", JSON.stringify(data));
     }
 
-    function drawChart(xLabel, yLabel, labels, data) {
-      if (chart) chart.destroy();
+    function addEntry() {
+      const desc = document.getElementById("desc").value;
+      const amount = Number(document.getElementById("amount").value);
+      const type = document.getElementById("type").value;
 
-      chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [{
-            label: yLabel,
-            data,
-            borderColor: '#38bdf8',
-            backgroundColor: 'rgba(56,189,248,0.25)',
-            tension: 0.25,
-            pointRadius: 3
-          }]
-        },
-        options: {
-          responsive: true,
-          scales: {
-            x: { title: { display: true, text: xLabel, color: '#e2e8f0' } },
-            y: { title: { display: true, text: yLabel, color: '#e2e8f0' } }
-          },
-          plugins: {
-            legend: { labels: { color: '#e2e8f0' } }
-          }
-        }
+      if (!desc || !amount) return;
+
+      data.push({ desc, amount, type });
+      save();
+      render();
+    }
+
+    function removeEntry(index) {
+      data.splice(index, 1);
+      save();
+      render();
+    }
+
+    function render() {
+      const body = document.getElementById("tableBody");
+      body.innerHTML = "";
+
+      let totalIn = 0;
+      let totalOut = 0;
+
+      data.forEach((item, i) => {
+        if (item.type === "in") totalIn += item.amount;
+        else totalOut += item.amount;
+
+        body.innerHTML += `
+          <tr>
+            <td>${item.desc}</td>
+            <td>${item.amount}</td>
+            <td>${item.type === "in" ? "In" : "Out"}</td>
+            <td><button onclick="removeEntry(${i})">X</button></td>
+          </tr>
+        `;
       });
+
+      document.getElementById("totalIn").textContent = totalIn;
+      document.getElementById("totalOut").textContent = totalOut;
+      document.getElementById("balance").textContent = totalIn - totalOut;
     }
+
+    render();
   </script>
 </body>
 </html>
+
