@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Gold Price (Simple Page)</title>
+  <title>Live Gold Price (XAU/USD)</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -24,13 +24,12 @@
   <script>
     async function loadGold() {
       try {
-        const res = await fetch("https://api.metals.live/v1/spot");
+        const res = await fetch("https://api.exchangerate.host/latest?base=XAU&symbols=USD");
         const data = await res.json();
 
-        // Gold is usually the first item in the array
-        const gold = data[0].price;
+        const goldPrice = data.rates.USD; // USD per 1 ounce of gold
 
-        document.getElementById("goldPrice").textContent = "$" + gold;
+        document.getElementById("goldPrice").textContent = "$" + goldPrice.toFixed(2);
       } catch (err) {
         document.getElementById("goldPrice").textContent = "Error loading price";
       }
