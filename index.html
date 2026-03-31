@@ -42,6 +42,101 @@
     font-size: 22px;
     font-weight: bold;
     margin-top: 8px;
+    transition: color 0.3s ease;
+  }
+</style>
+
+<script>
+  const symbols = ["AAPL", "TSLA", "AMZN", "XAUUSD"];
+  const lastPrices = {};
+
+  async function loadPrices() {
+    const url =
+      "https://cors.isomorphic-git.org/https://query1.finance.yahoo.com/v7/finance/quote?symbols=" +
+      symbols.join(",");
+
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+
+      data.quoteResponse.result.forEach(item => {
+        const price = item.regularMarketPrice;
+        const id = item.symbol;
+
+        if (!price) {
+          document.getElementById(id).textContent = "N/A";
+          return;
+        }
+
+        const priceEl = document.getElementById(id);
+        priceEl.textContent = "$" + price.toFixed(2);
+
+        // Color change logic
+        if (lastPrices[id] !== undefined) {
+          if (price > lastPrices[id]) {
+            priceEl.style.color = "green";
+          } else if (price < lastPrices[id]) {
+            priceEl.style.color = "red";
+          } else {
+            priceEl.style.color = "black";
+          }
+        }
+
+        lastPrices[id] = price;
+      });
+
+    } catch (err) {
+      console.log("Yahoo Finance fetch error:", err);
+    }
+  }
+
+  loadPrices();
+  setInterval(loadPrices, 30000); // refresh every 30 seconds
+</script>
+<div style="display:flex; gap:20px; flex-wrap:wrap;">
+
+  <div class="stockBox">
+    <h3>AAPL</h3>
+    <p class="price" id="AAPL">Loading...</p>
+  </div>
+
+  <div class="stockBox">
+    <h3>TSLA</h3>
+    <p class="price" id="TSLA">Loading...</p>
+  </div>
+
+  <div class="stockBox">
+    <h3>AMZN</h3>
+    <p class="price" id="AMZN">Loading...</p>
+  </div>
+
+  <div class="stockBox">
+    <h3>XAUUSD</h3>
+    <p class="price" id="XAUUSD">Loading...</p>
+  </div>
+
+</div>
+
+<style>
+  .stockBox {
+    width: 180px;
+    padding: 15px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-family: Inter, sans-serif;
+    color: black;
+    text-align: center;
+  }
+  .stockBox h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+  .price {
+    font-size: 22px;
+    font-weight: bold;
+    margin-top: 8px;
   }
 </style>
 
