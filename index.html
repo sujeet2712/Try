@@ -1,29 +1,74 @@
-<div id="stockBox" style="
-  padding:20px;
-  background:rgba(255,255,255,0.1);
-  border-radius:12px;
-  width:250px;
-  font-family:Inter, sans-serif;
-  color:#e2e8f0;
-">
-  <h3>Live Stock Price</h3>
-  <p id="stockName">AAPL</p>
-  <p id="stockPrice">Loading...</p>
+<div style="display:flex; gap:20px; flex-wrap:wrap;">
+
+  <div class="stockBox" id="box-AAPL">
+    <h3>AAPL</h3>
+    <p class="price" id="price-AAPL">Loading...</p>
+  </div>
+
+  <div class="stockBox" id="box-TSLA">
+    <h3>TSLA</h3>
+    <p class="price" id="price-TSLA">Loading...</p>
+  </div>
+
+  <div class="stockBox" id="box-AMZN">
+    <h3>AMZN</h3>
+    <p class="price" id="price-AMZN">Loading...</p>
+  </div>
+
+  <div class="stockBox" id="box-XAUUSD">
+    <h3>XAUUSD</h3>
+    <p class="price" id="price-XAUUSD">Loading...</p>
+  </div>
+
 </div>
 
-<script>
-  const API_KEY = "YOUR_API_KEY"; // Alpha Vantage key
-  const symbol = "AAPL";
+<style>
+  .stockBox {
+    width: 180px;
+    padding: 15px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    font-family: Inter, sans-serif;
+    color: black;
+    text-align: center;
+  }
+  .stockBox h3 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+  }
+  .price {
+    font-size: 22px;
+    font-weight: bold;
+    margin-top: 8px;
+  }
+</style>
 
-  async function loadPrice() {
+<script>
+  const API_KEY = "YOUR_API_KEY";
+
+  const symbols = ["AAPL", "TSLA", "AMZN", "XAUUSD"];
+
+  async function loadPrice(symbol) {
     const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${API_KEY}`;
     const res = await fetch(url);
     const data = await res.json();
 
-    const price = data["Global Quote"]["05. price"];
-    document.getElementById("stockPrice").textContent = "$" + Number(price).toFixed(2);
+    const price = data["Global Quote"]?.["05. price"];
+
+    if (price) {
+      document.getElementById("price-" + symbol).textContent =
+        "$" + Number(price).toFixed(2);
+    } else {
+      document.getElementById("price-" + symbol).textContent = "N/A";
+    }
   }
 
-  loadPrice();
-  setInterval(loadPrice, 60000); // refresh every 60 seconds
+  function refreshAll() {
+    symbols.forEach(loadPrice);
+  }
+
+  refreshAll();
+  setInterval(refreshAll, 30000); // refresh every 30 seconds
 </script>
