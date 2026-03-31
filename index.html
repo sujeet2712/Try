@@ -1,7 +1,7 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>Live Market Dashboard</title>
 
   <style>
@@ -11,13 +11,11 @@
       font-family: Inter, Arial, sans-serif;
       background: #f5f5f5;
     }
-
     .container {
       display: flex;
       gap: 20px;
       flex-wrap: wrap;
     }
-
     .stockBox {
       width: 180px;
       padding: 15px;
@@ -26,14 +24,12 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
       text-align: center;
     }
-
     .stockBox h3 {
       margin: 0;
       font-size: 20px;
       font-weight: 600;
       color: black;
     }
-
     .price {
       font-size: 22px;
       font-weight: bold;
@@ -71,56 +67,47 @@
   </div>
 
   <script>
+    const API_KEY = "YOUR_API_KEY";
     const symbols = ["AAPL", "TSLA", "AMZN", "XAUUSD"];
     const lastPrices = {};
 
-    async function loadPrices() {
-      const yahooURL =
-        "https://query1.finance.yahoo.com/v7/finance/quote?symbols=" +
-        symbols.join(",");
-
-      const proxyURL =
-        "https://api.allorigins.win/raw?url=" + encodeURIComponent(yahooURL);
+    async function loadPrice(symbol) {
+      const url = `https://api.twelvedata.com/price?symbol=${symbol}&apikey=${API_KEY}`;
 
       try {
-        const res = await fetch(proxyURL);
+        const res = await fetch(url);
         const data = await res.json();
 
-        data.quoteResponse.result.forEach(item => {
-          const price = item.regularMarketPrice;
-          const id = item.symbol;
+        const price = parseFloat(data.price);
+        const el = document.getElementById(symbol);
 
-          const priceEl = document.getElementById(id);
+        if (!price) {
+          el.textContent = "N/A";
+          el.style.color = "black";
+          return;
+        }
 
-          if (!price) {
-            priceEl.textContent = "N/A";
-            priceEl.style.color = "black";
-            return;
-          }
+        el.textContent = "$" + price.toFixed(2);
 
-          priceEl.textContent = "$" + price.toFixed(2);
+        if (lastPrices[symbol] !== undefined) {
+          if (price > lastPrices[symbol]) el.style.color = "green";
+          else if (price < lastPrices[symbol]) el.style.color = "red";
+          else el.style.color = "black";
+        }
 
-          // Color change logic
-          if (lastPrices[id] !== undefined) {
-            if (price > lastPrices[id]) {
-              priceEl.style.color = "green";
-            } else if (price < lastPrices[id]) {
-              priceEl.style.color = "red";
-            } else {
-              priceEl.style.color = "black";
-            }
-          }
-
-          lastPrices[id] = price;
-        });
+        lastPrices[symbol] = price;
 
       } catch (err) {
-        console.log("Yahoo Finance fetch error:", err);
+        console.log("Error:", err);
       }
     }
 
-    loadPrices();
-    setInterval(loadPrices, 30000); // refresh every 30 seconds
+    function refreshAll() {
+      symbols.forEach(loadPrice);
+    }
+
+    refreshAll();
+    setInterval(refreshAll, 30000);
   </script>
 
 </body>
