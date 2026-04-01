@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Gold 1H Auto Trend Analyzer</title>
+    <title>Gold 1H Auto Trend Analyzer (TradingView Data)</title>
 
     <style>
         body {
@@ -95,27 +95,15 @@
 
 <script>
 // ===============================
-// CONFIG
+// FETCH TRADINGVIEW CANDLES
 // ===============================
-const API_KEY = "goldapi-3oxc5gsmnfuunj4-io"; // your key
-const BASE_URL = "https://www.goldapi.io/api";
-
-// ===============================
-// FETCH 1H OHLC DATA
-// ===============================
-async function fetchOHLC(period = "hour", limit = 200) {
+async function fetchTradingViewCandles() {
     try {
-        const res = await fetch(`${BASE_URL}/XAU/USD/history?period=${period}&limit=${limit}`, {
-            headers: { "x-access-token": API_KEY }
-        });
-        const data = await res.json();
-        if (!Array.isArray(data)) {
-            console.error("Unexpected OHLC response:", data);
-            return [];
-        }
-        return data;
+        const url = "https://api.tvdatafeed.com/candles?symbol=OANDA:XAUUSD&resolution=60&limit=200";
+        const res = await fetch(url);
+        return await res.json();
     } catch (err) {
-        console.error("Error fetching OHLC:", err);
+        console.error("TradingView data error:", err);
         return [];
     }
 }
@@ -124,120 +112,84 @@ async function fetchOHLC(period = "hour", limit = 200) {
 // EMA CALCULATION
 // ===============================
 function ema(values, period) {
-    if (values.length === 0) return [];
     const k = 2 / (period + 1);
-    const emaArray = [values[0]];
+    let emaArr = [values[0]];
     for (let i = 1; i < values.length; i++) {
-        emaArray.push(values[i] * k + emaArray[i - 1] * (1 - k));
+        emaArr.push(values[i] * k + emaArr[i - 1] * (1 - k));
     }
-    return emaArray;
+    return emaArr;
 }
 
 // ===============================
 // MAIN ANALYZER LOGIC
 // ===============================
-function analyze1H(candles) {
-    if (candles.length < 50) {
-        return { error: "Not enough data" };
-    }
-
+function analyze(candles) {
     const closes = candles.map(c => c.close);
-    const volumes = candles.map(c => c.volume || 0);
+    const volumes = candles.map(c => c.volume);
 
-    // EMA 9 & 13
+    // EMA
     const ema9 = ema(closes, 9);
     const ema13 = ema(closes, 13);
-    const lastEma9 = ema9[ema9.length - 1];
-    const lastEma13 = ema13[ema13.length - 1];
-    const emaCrossover = lastEma9 > lastEma13 ? "Bullish" : "Bearish";
+    const emaCross = ema9.at(-1) > ema13.at(-1) ? "Bullish" : "Bearish";
 
-    // Volume strength (last 20 candles)
-    const volSlice = volumes.slice(-20);
-    const avgVol = volSlice.reduce((a, b) => a + b, 0) / (volSlice.length || 1);
-    const lastVol = volumes[volumes.length - 1];
-    const volumeStrength = lastVol > avgVol ? "Strong" : "Weak";
+    // Volume
+    const avgVol = volumes.slice(-20).reduce((a,b)=>a+b,0) / 20;
+    const volStrength = volumes.at(-1) > avgVol ? "Strong" : "Weak";
 
-    // Recent swing high/low (last 50 candles)
+    // Support / Fib
     const recent = candles.slice(-50);
     const high = Math.max(...recent.map(c => c.high));
     const low = Math.min(...recent.map(c => c.low));
+    const lastClose = closes.at(-1);
 
-    // Fibonacci levels
-    const range = high - low;
-    const fib382 = low + range * 0.382;
-    const fib500 = low + range * 0.5;
-    const fib618 = low + range * 0.618;
-
-    const lastClose = closes[closes.length - 1];
+    const fib382 = low + (high - low) * 0.382;
+    const fib500 = low + (high - low) * 0.5;
+    const fib618 = low + (high - low) * 0.618;
 
     let fibCheck = "Below 0.382";
     if (lastClose > fib382) fibCheck = "Above 0.382";
     if (lastClose > fib500) fibCheck = "Above 0.5";
     if (lastClose > fib618) fibCheck = "Above 0.618";
 
-    // Final signal
+    // Final Signal
     let signal = "NEUTRAL";
-    if (emaCrossover === "Bullish" && volumeStrength === "Strong" && lastClose > fib500) {
-        signal = "BUY";
-    } else if (emaCrossover === "Bearish" && volumeStrength === "Strong" && lastClose < fib500) {
-        signal = "SELL";
-    }
+    if (emaCross === "Bullish" && volStrength === "Strong" && lastClose > fib500) signal = "BUY";
+    if (emaCross === "Bearish" && volStrength === "Strong" && lastClose < fib500) signal = "SELL";
 
-    return {
-        emaCrossover,
-        volumeStrength,
-        fibCheck,
-        lastClose,
-        high,
-        low,
-        fib382,
-        fib500,
-        fib618,
-        signal
-    };
+    return { emaCross, volStrength, fibCheck, lastClose, high, low, fib382, fib500, fib618, signal };
 }
 
 // ===============================
-// UPDATE ANALYZER PANEL
+// UPDATE PANEL
 // ===============================
-async function updateAnalyzer1H() {
+async function updatePanel() {
     const box = document.getElementById("trend-1h");
-    box.innerHTML = "Loading 1H analysis...";
+    box.innerHTML = "Loading...";
 
-    const candles = await fetchOHLC("hour", 200);
+    const candles = await fetchTradingViewCandles();
     if (!candles.length) {
-        box.innerHTML = "Error: No data received.";
+        box.innerHTML = "Error: No TradingView data.";
         return;
     }
 
-    const result = analyze1H(candles);
-    if (result.error) {
-        box.innerHTML = result.error;
-        return;
-    }
+    const r = analyze(candles);
 
     const signalClass =
-        result.signal === "BUY" ? "uptrend" :
-        result.signal === "SELL" ? "downtrend" : "sideways";
+        r.signal === "BUY" ? "uptrend" :
+        r.signal === "SELL" ? "downtrend" : "sideways";
 
     box.innerHTML = `
-        <div><span class="label">EMA Crossover:</span> <span class="value">${result.emaCrossover}</span></div>
-        <div><span class="label">Volume Strength:</span> <span class="value">${result.volumeStrength}</span></div>
-        <div><span class="label">Fibonacci Zone:</span> <span class="value">${result.fibCheck}</span></div>
-        <div><span class="label">Last Close:</span> <span class="value">${result.lastClose.toFixed(2)}</span></div>
-        <div><span class="label">Range Low:</span> <span class="value">${result.low.toFixed(2)}</span></div>
-        <div><span class="label">Range High:</span> <span class="value">${result.high.toFixed(2)}</span></div>
-        <div><span class="label">Fib 0.382:</span> <span class="value">${result.fib382.toFixed(2)}</span></div>
-        <div><span class="label">Fib 0.5:</span> <span class="value">${result.fib500.toFixed(2)}</span></div>
-        <div><span class="label">Fib 0.618:</span> <span class="value">${result.fib618.toFixed(2)}</span></div>
+        <div><span class="label">EMA Crossover:</span> <span class="value">${r.emaCross}</span></div>
+        <div><span class="label">Volume Strength:</span> <span class="value">${r.volStrength}</span></div>
+        <div><span class="label">Fibonacci:</span> <span class="value">${r.fibCheck}</span></div>
+        <div><span class="label">Last Close:</span> <span class="value">${r.lastClose.toFixed(2)}</span></div>
         <hr>
-        <div><span class="label">Final Signal:</span> <span class="${signalClass}">${result.signal}</span></div>
+        <div><span class="label">Final Signal:</span> <span class="${signalClass}">${r.signal}</span></div>
     `;
 }
 
-// run now + every hour
-updateAnalyzer1H();
-setInterval(updateAnalyzer1H, 3600000);
+updatePanel();
+setInterval(updatePanel, 300000); // refresh every 5 minutes
 </script>
 
 </body>
