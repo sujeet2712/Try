@@ -1,202 +1,137 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Auto Trendline & Swing Detection</title>
-<style>
-  body {
-    margin: 0;
-    background: #111;
-    color: #eee;
-    font-family: Arial, sans-serif;
-  }
-  header {
-    padding: 10px;
-    background: #181818;
-    border-bottom: 1px solid #333;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-  input[type="file"] {
-    color: #eee;
-  }
-  button {
-    background: #333;
-    color: #eee;
-    border: 1px solid #555;
-    padding: 6px 10px;
-    border-radius: 4px;
-    cursor: pointer;
-  }
-  button.active {
-    background: #007bff;
-    border-color: #007bff;
-  }
-  #canvasContainer {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: calc(100vh - 60px);
-    background: #000;
-  }
-  canvas {
-    border: 1px solid #333;
-    max-width: 100%;
-    max-height: 100%;
-  }
-</style>
+    <meta charset="UTF-8">
+    <title>Gold Price Analyzer</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #111;
+            color: #eee;
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            width: 90%;
+            max-width: 900px;
+            margin: 40px auto;
+            text-align: center;
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .price-box {
+            font-size: 24px;
+            margin-bottom: 20px;
+            padding: 15px 25px;
+            background: #222;
+            border-radius: 8px;
+            display: inline-block;
+            border: 1px solid #444;
+        }
+        canvas {
+            margin-top: 20px;
+        }
+    </style>
 </head>
+
 <body>
 
-<header>
-  <input type="file" id="imgInput" accept="image/*">
-  <button id="detectBtn">Auto Detect</button>
-  <button id="toggleSwings">Toggle Swings</button>
-  <button id="toggleTrend">Toggle Trendlines</button>
-</header>
+<div class="container">
+    <h1>Gold Price Analyzer</h1>
 
-<div id="canvasContainer">
-  <canvas id="chartCanvas"></canvas>
+    <div id="live-price" class="price-box">
+        Loading live gold price...
+    </div>
+
+    <canvas id="goldChart"></canvas>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
-const canvas = document.getElementById("chartCanvas");
-const ctx = canvas.getContext("2d");
+// ===============================
+// 1. CONFIG
+// ===============================
+const API_KEY = "YOUR_API_KEY_HERE";  // <-- paste your key here
+const API_URL = `https://metals-api.com/api/latest?access_key=${API_KEY}&symbols=XAU&base=USD`;
 
-let img = new Image();
-let imgLoaded = false;
+// ===============================
+// 2. FETCH LIVE GOLD PRICE
+// ===============================
+async function fetchGoldPrice() {
+    const priceBox = document.getElementById("live-price");
 
-let swingHighs = [];
-let swingLows = [];
-let trendlines = [];
+    try {
+        const response = await fetch(API_URL);
+        const data = await response.json();
 
-let showSwings = true;
-let showTrend = true;
+        if (!data || !data.rates || !data.rates.XAU) {
+            priceBox.innerText = "Could not read gold price from API";
+            console.error("Unexpected API response:", data);
+            return null;
+        }
 
-document.getElementById("imgInput").addEventListener("change", loadImage);
-document.getElementById("detectBtn").addEventListener("click", autoDetect);
-document.getElementById("toggleSwings").addEventListener("click", () => {
-  showSwings = !showSwings;
-  redraw();
-});
-document.getElementById("toggleTrend").addEventListener("click", () => {
-  showTrend = !showTrend;
-  redraw();
-});
+        const price = data.rates.XAU;
+        priceBox.innerText = `Gold Price: $${price.toFixed(2)} per ounce`;
 
-function loadImage(e) {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    img = new Image();
-    img.onload = function() {
-      imgLoaded = true;
-      canvas.width = img.width;
-      canvas.height = img.height;
-      ctx.drawImage(img, 0, 0);
-    };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(file);
-}
-
-function autoDetect() {
-  if (!imgLoaded) return;
-
-  const w = canvas.width;
-  const h = canvas.height;
-
-  const imgData = ctx.getImageData(0, 0, w, h);
-  const data = imgData.data;
-
-  swingHighs = [];
-  swingLows = [];
-
-  // Scan vertical slices
-  for (let x = 0; x < w; x += 8) {
-    let maxY = 0;
-    let minY = h - 1;
-    let maxVal = -1;
-    let minVal = 9999;
-
-    for (let y = 0; y < h; y++) {
-      const idx = (y * w + x) * 4;
-      const brightness = data[idx] + data[idx+1] + data[idx+2];
-
-      if (brightness > maxVal) {
-        maxVal = brightness;
-        maxY = y;
-      }
-      if (brightness < minVal) {
-        minVal = brightness;
-        minY = y;
-      }
+        return price;
+    } catch (err) {
+        priceBox.innerText = "Error loading price";
+        console.error("Error fetching gold price:", err);
+        return null;
     }
-
-    swingHighs.push({ x, y: maxY });
-    swingLows.push({ x, y: minY });
-  }
-
-  // Build trendlines
-  trendlines = [];
-  buildTrendlines();
-
-  redraw();
 }
 
-function buildTrendlines() {
-  if (swingHighs.length < 2 || swingLows.length < 2) return;
+// ===============================
+// 3. SIMPLE PLACEHOLDER CHART
+// ===============================
+function drawPlaceholderChart() {
+    const ctx = document.getElementById("goldChart").getContext("2d");
 
-  // Connect highest highs
-  const sortedHighs = [...swingHighs].sort((a,b) => a.y - b.y);
-  trendlines.push({
-    x1: sortedHighs[0].x,
-    y1: sortedHighs[0].y,
-    x2: sortedHighs[1].x,
-    y2: sortedHighs[1].y,
-    color: "#00ff88"
-  });
-
-  // Connect lowest lows
-  const sortedLows = [...swingLows].sort((a,b) => b.y - a.y);
-  trendlines.push({
-    x1: sortedLows[0].x,
-    y1: sortedLows[0].y,
-    x2: sortedLows[1].x,
-    y2: sortedLows[1].y,
-    color: "#ff0088"
-  });
+    new Chart(ctx, {
+        type: "line",
+        data: {
+            labels: ["1", "2", "3", "4", "5"],
+            datasets: [{
+                label: "Gold Price (placeholder)",
+                data: [1, 2, 3, 2, 4],
+                borderColor: "gold",
+                borderWidth: 2,
+                pointRadius: 0,
+                tension: 0.2
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    labels: { color: "#eee" }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: "#aaa" },
+                    grid: { color: "#333" }
+                },
+                y: {
+                    ticks: { color: "#aaa" },
+                    grid: { color: "#333" }
+                }
+            }
+        }
+    });
 }
 
-function redraw() {
-  if (!imgLoaded) return;
-  ctx.drawImage(img, 0, 0);
-
-  if (showSwings) {
-    ctx.fillStyle = "yellow";
-    swingHighs.forEach(p => {
-      ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
-    });
-    ctx.fillStyle = "cyan";
-    swingLows.forEach(p => {
-      ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
-    });
-  }
-
-  if (showTrend) {
-    trendlines.forEach(t => {
-      ctx.strokeStyle = t.color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(t.x1, t.y1);
-      ctx.lineTo(t.x2, t.y2);
-      ctx.stroke();
-    });
-  }
-}
+// ===============================
+// 4. INIT
+// ===============================
+(async function init() {
+    await fetchGoldPrice();
+    drawPlaceholderChart(); // will be replaced with real chart later
+})();
 </script>
 
 </body>
