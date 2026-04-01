@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Gold Live Chart – TradingView</title>
+    <title>Gold Trend Analyzer</title>
 
     <style>
         body {
@@ -14,81 +14,152 @@
         }
         .container {
             width: 95%;
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 30px auto;
-            text-align: center;
-        }
-        .price-box {
-            font-size: 24px;
-            margin-bottom: 20px;
-            padding: 15px 25px;
-            background: #222;
-            border-radius: 8px;
-            display: inline-block;
-            border: 1px solid #444;
         }
         h1 {
+            text-align: center;
             font-weight: 500;
         }
+        .layout {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .chart-col {
+            flex: 3;
+        }
+        .analysis-col {
+            flex: 1;
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #333;
+        }
+        .analysis-box {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #222;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        .uptrend { color: #26a69a; font-weight: bold; }
+        .downtrend { color: #ef5350; font-weight: bold; }
+        .sideways { color: #ffeb3b; font-weight: bold; }
     </style>
 </head>
 
 <body>
 
 <div class="container">
-    <h1>Gold Live Chart</h1>
+    <h1>Gold Trend Analyzer</h1>
 
-    <!-- OPTIONAL: Live price from GoldAPI -->
-    <div id="live-price" class="price-box">
-        Loading live gold price...
-    </div>
+    <div class="layout">
+        <!-- TradingView Chart -->
+        <div class="chart-col">
+            <div class="tradingview-widget-container">
+                <div id="tradingview_gold"></div>
+                <script src="https://s3.tradingview.com/tv.js"></script>
+                <script>
+                    new TradingView.widget({
+                        "width": "100%",
+                        "height": 700,
+                        "symbol": "OANDA:XAUUSD",
+                        "interval": "60",
+                        "timezone": "Etc/UTC",
+                        "theme": "dark",
+                        "style": "1",
+                        "locale": "en",
+                        "toolbar_bg": "#111",
+                        "enable_publishing": false,
+                        "allow_symbol_change": false,
+                        "container_id": "tradingview_gold"
+                    });
+                </script>
+            </div>
+        </div>
 
-    <!-- TradingView Widget -->
-    <div class="tradingview-widget-container">
-        <div id="tradingview_gold"></div>
-        <script src="https://s3.tradingview.com/tv.js"></script>
-        <script>
-            new TradingView.widget({
-                "width": "100%",
-                "height": 600,
-                "symbol": "OANDA:XAUUSD",
-                "interval": "60",
-                "timezone": "Etc/UTC",
-                "theme": "dark",
-                "style": "1",
-                "locale": "en",
-                "toolbar_bg": "#111",
-                "enable_publishing": false,
-                "allow_symbol_change": false,
-                "container_id": "tradingview_gold"
-            });
-        </script>
+        <!-- Analyzer Panel -->
+        <div class="analysis-col">
+            <h2>Auto Trend Analyzer</h2>
+
+            <div id="trend-1h" class="analysis-box">Loading 1H trend...</div>
+            <div id="trend-30m" class="analysis-box">Loading 30m trend...</div>
+            <div id="trend-15m" class="analysis-box">Loading 15m trend...</div>
+        </div>
     </div>
 </div>
 
 <script>
-// OPTIONAL: Live price using your GoldAPI key
+// ===============================
+// CONFIG
+// ===============================
 const API_KEY = "goldapi-3oxc5gsmnfuunj4-io";
 const BASE_URL = "https://www.goldapi.io/api";
 
-async function fetchLivePrice() {
-    const box = document.getElementById("live-price");
-
+// ===============================
+// FETCH OHLC FOR ANY TIMEFRAME
+// ===============================
+async function fetchOHLC(period, limit = 50) {
     try {
-        const res = await fetch(`${BASE_URL}/XAU/USD`, {
+        const res = await fetch(`${BASE_URL}/XAU/USD/history?period=${period}&limit=${limit}`, {
             headers: { "x-access-token": API_KEY }
         });
-
-        const data = await res.json();
-        box.innerText = `Live Gold Price: $${data.price.toFixed(2)} / oz`;
+        return await res.json();
     } catch (err) {
-        box.innerText = "Error loading price";
-        console.error(err);
+        console.error("Error fetching OHLC:", err);
+        return [];
     }
 }
 
-fetchLivePrice();
-setInterval(fetchLivePrice, 3600000); // refresh every hour
+// ===============================
+// TREND ANALYSIS ENGINE
+// ===============================
+function analyzeTrend(candles) {
+    if (candles.length < 10) return "Not enough data";
+
+    const closes = candles.map(c => c.close);
+
+    // 1. Compute slope
+    const slope = closes[closes.length - 1] - closes[0];
+
+    // 2. Detect HH/HL or LH/LL
+    let hh = 0, hl = 0, lh = 0, ll = 0;
+
+    for (let i = 1; i < closes.length; i++) {
+        if (closes[i] > closes[i - 1]) hh++;
+        if (closes[i] < closes[i - 1]) lh++;
+    }
+
+    // Classification
+    if (slope > 0 && hh > lh) return `<span class="uptrend">UPTREND</span>`;
+    if (slope < 0 && lh > hh) return `<span class="downtrend">DOWNTREND</span>`;
+    return `<span class="sideways">SIDEWAYS</span>`;
+}
+
+// ===============================
+// UPDATE ANALYZER PANEL
+// ===============================
+async function updateAnalyzer() {
+    // 1H
+    const h1 = await fetchOHLC("hour", 50);
+    document.getElementById("trend-1h").innerHTML =
+        `1H Trend: ${analyzeTrend(h1)}`;
+
+    // 30m
+    const m30 = await fetchOHLC("30min", 50);
+    document.getElementById("trend-30m").innerHTML =
+        `30m Trend: ${analyzeTrend(m30)}`;
+
+    // 15m
+    const m15 = await fetchOHLC("15min", 50);
+    document.getElementById("trend-15m").innerHTML =
+        `15m Trend: ${analyzeTrend(m15)}`;
+}
+
+// Run immediately + every hour
+updateAnalyzer();
+setInterval(updateAnalyzer, 3600000);
 </script>
 
 </body>
