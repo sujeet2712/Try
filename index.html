@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Gold Price Analyzer</title>
+    <title>Gold Candlestick Analyzer</title>
 
     <style>
         body {
@@ -13,9 +13,9 @@
             padding: 0;
         }
         .container {
-            width: 90%;
-            max-width: 900px;
-            margin: 40px auto;
+            width: 95%;
+            max-width: 1000px;
+            margin: 30px auto;
             text-align: center;
         }
         .price-box {
@@ -27,7 +27,8 @@
             display: inline-block;
             border: 1px solid #444;
         }
-        canvas {
+        #chart {
+            height: 500px;
             margin-top: 20px;
         }
     </style>
@@ -36,16 +37,16 @@
 <body>
 
 <div class="container">
-    <h1>Gold Price Analyzer</h1>
+    <h1>Gold Candlestick Analyzer</h1>
 
     <div id="live-price" class="price-box">
         Loading live gold price...
     </div>
 
-    <canvas id="goldChart"></canvas>
+    <div id="chart"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
 
 <script>
 // ===============================
@@ -58,7 +59,7 @@ const BASE_URL = "https://www.goldapi.io/api";
 // FETCH LIVE PRICE
 // ===============================
 async function fetchLivePrice() {
-    const priceBox = document.getElementById("live-price");
+    const box = document.getElementById("live-price");
 
     try {
         const res = await fetch(`${BASE_URL}/XAU/USD`, {
@@ -66,78 +67,79 @@ async function fetchLivePrice() {
         });
 
         const data = await res.json();
-        priceBox.innerText = `Live Gold Price: $${data.price.toFixed(2)} / oz`;
+        box.innerText = `Live Gold Price: $${data.price.toFixed(2)} / oz`;
 
         return data.price;
     } catch (err) {
-        priceBox.innerText = "Error loading price";
+        box.innerText = "Error loading price";
         console.error(err);
     }
 }
 
 // ===============================
-// FETCH LAST 24 HOURS (HOURLY)
+// FETCH HISTORICAL OHLC DATA
 // ===============================
-async function fetchHourlyData() {
+async function fetchCandles() {
     try {
-        const res = await fetch(`${BASE_URL}/XAU/USD/history?period=hour&limit=24`, {
+        const res = await fetch(`${BASE_URL}/XAU/USD/history?period=day&limit=60`, {
             headers: { "x-access-token": API_KEY }
         });
 
         const data = await res.json();
 
-        // Extract closing prices
-        const labels = data.map(item => item.date.substring(11, 16)); // HH:MM
-        const prices = data.map(item => item.close);
-
-        return { labels, prices };
+        // Convert to Lightweight Charts format
+        return data.map(c => ({
+            time: c.date.substring(0, 10), // YYYY-MM-DD
+            open: c.open,
+            high: c.high,
+            low: c.low,
+            close: c.close
+        }));
     } catch (err) {
-        console.error("Error fetching hourly data:", err);
-        return { labels: [], prices: [] };
+        console.error("Error fetching candles:", err);
+        return [];
     }
 }
 
 // ===============================
-// DRAW BAR CHART
+// DRAW CANDLESTICK CHART
 // ===============================
-let chart;
+let chart, candleSeries;
 
-async function drawBarChart() {
-    const { labels, prices } = await fetchHourlyData();
+async function drawCandlestickChart() {
+    const candles = await fetchCandles();
 
-    const ctx = document.getElementById("goldChart").getContext("2d");
-
-    if (chart) chart.destroy();
-
-    chart = new Chart(ctx, {
-        type: "bar",
-        data: {
-            labels: labels,
-            datasets: [{
-                label: "Gold Closing Price (Last 24 Hours)",
-                data: prices,
-                backgroundColor: "gold",
-                borderColor: "#ffdd55",
-                borderWidth: 1
-            }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { labels: { color: "#eee" } }
+    if (!chart) {
+        chart = LightweightCharts.createChart(document.getElementById("chart"), {
+            width: document.getElementById("chart").clientWidth,
+            height: 500,
+            layout: {
+                background: { color: "#111" },
+                textColor: "#eee"
             },
-            scales: {
-                x: {
-                    ticks: { color: "#aaa" },
-                    grid: { color: "#333" }
-                },
-                y: {
-                    ticks: { color: "#aaa" },
-                    grid: { color: "#333" }
-                }
+            grid: {
+                vertLines: { color: "#333" },
+                horzLines: { color: "#333" }
+            },
+            timeScale: {
+                borderColor: "#444"
+            },
+            rightPriceScale: {
+                borderColor: "#444"
             }
-        }
-    });
+        });
+
+        candleSeries = chart.addCandlestickSeries({
+            upColor: "#26a69a",
+            downColor: "#ef5350",
+            borderUpColor: "#26a69a",
+            borderDownColor: "#ef5350",
+            wickUpColor: "#26a69a",
+            wickDownColor: "#ef5350"
+        });
+    }
+
+    candleSeries.setData(candles);
 }
 
 // ===============================
@@ -145,12 +147,11 @@ async function drawBarChart() {
 // ===============================
 async function init() {
     await fetchLivePrice();
-    await drawBarChart();
+    await drawCandlestickChart();
 
-    // Refresh every hour (3600000 ms)
     setInterval(async () => {
         await fetchLivePrice();
-        await drawBarChart();
+        await drawCandlestickChart();
     }, 3600000);
 }
 
