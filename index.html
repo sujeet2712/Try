@@ -113,25 +113,40 @@ async function fetchOHLC(period, limit = 50) {
 }
 
 // ===============================
+// AGGREGATE CANDLES (for 30m, 15m)
+// ===============================
+function aggregateCandles(candles, groupSize) {
+    const result = [];
+    for (let i = 0; i < candles.length; i += groupSize) {
+        const group = candles.slice(i, i + groupSize);
+        if (group.length < groupSize) continue;
+
+        result.push({
+            time: group[0].date,
+            open: group[0].open,
+            high: Math.max(...group.map(c => c.high)),
+            low: Math.min(...group.map(c => c.low)),
+            close: group[group.length - 1].close
+        });
+    }
+    return result;
+}
+
+// ===============================
 // TREND ANALYSIS ENGINE
 // ===============================
 function analyzeTrend(candles) {
     if (candles.length < 10) return "Not enough data";
 
     const closes = candles.map(c => c.close);
-
-    // 1. Compute slope
     const slope = closes[closes.length - 1] - closes[0];
 
-    // 2. Detect HH/HL or LH/LL
-    let hh = 0, hl = 0, lh = 0, ll = 0;
-
+    let hh = 0, lh = 0;
     for (let i = 1; i < closes.length; i++) {
         if (closes[i] > closes[i - 1]) hh++;
         if (closes[i] < closes[i - 1]) lh++;
     }
 
-    // Classification
     if (slope > 0 && hh > lh) return `<span class="uptrend">UPTREND</span>`;
     if (slope < 0 && lh > hh) return `<span class="downtrend">DOWNTREND</span>`;
     return `<span class="sideways">SIDEWAYS</span>`;
@@ -141,18 +156,21 @@ function analyzeTrend(candles) {
 // UPDATE ANALYZER PANEL
 // ===============================
 async function updateAnalyzer() {
-    // 1H
+
+    // 1H (direct)
     const h1 = await fetchOHLC("hour", 50);
     document.getElementById("trend-1h").innerHTML =
         `1H Trend: ${analyzeTrend(h1)}`;
 
-    // 30m
-    const m30 = await fetchOHLC("30min", 50);
+    // 30m (aggregate 10min candles)
+    const m10 = await fetchOHLC("10min", 150);
+    const m30 = aggregateCandles(m10, 3);
     document.getElementById("trend-30m").innerHTML =
         `30m Trend: ${analyzeTrend(m30)}`;
 
-    // 15m
-    const m15 = await fetchOHLC("15min", 50);
+    // 15m (aggregate 5min candles)
+    const m5 = await fetchOHLC("5min", 150);
+    const m15 = aggregateCandles(m5, 3);
     document.getElementById("trend-15m").innerHTML =
         `15m Trend: ${analyzeTrend(m15)}`;
 }
