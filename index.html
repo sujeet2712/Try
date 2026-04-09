@@ -21,10 +21,7 @@
         box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
 
-    h2 {
-        margin-top: 0;
-        text-align: center;
-    }
+    h2 { text-align: center; }
 
     .input-row {
         display: grid;
@@ -47,9 +44,7 @@
         border: none;
     }
 
-    button:hover {
-        background: #0056b3;
-    }
+    button:hover { background: #0056b3; }
 
     table {
         width: 100%;
@@ -63,17 +58,10 @@
         text-align: center;
     }
 
-    th {
-        background: #f0f0f0;
-    }
+    th { background: #f0f0f0; }
 
-    .overdue {
-        background: #ffb3b3;
-    }
-
-    .due-soon {
-        background: #fff3b3;
-    }
+    .overdue { background: #ffb3b3; }
+    .due-soon { background: #fff3b3; }
 
     #notificationBox {
         padding: 12px;
@@ -95,6 +83,36 @@
 
     .edit-btn { background: #28a745; }
     .delete-btn { background: #dc3545; }
+
+    /* Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.5);
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-content {
+        background: white;
+        padding: 20px;
+        width: 400px;
+        border-radius: 10px;
+    }
+
+    .modal-content h3 { margin-top: 0; }
+
+    .modal-content input, .modal-content select {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    .modal-buttons {
+        display: flex;
+        justify-content: space-between;
+    }
 </style>
 </head>
 
@@ -114,11 +132,8 @@
     </select>
 
     <input type="text" id="sensorNo" placeholder="Sensor No.">
-
     <input type="date" id="outDate">
-
     <input type="date" id="dueDate">
-
     <input type="text" id="company" placeholder="Company Name">
 
     <select id="status">
@@ -149,20 +164,51 @@
 
 </div>
 
+<!-- EDIT MODAL -->
+<div class="modal" id="editModal">
+    <div class="modal-content">
+        <h3>Edit Sensor</h3>
+
+        <select id="editType">
+            <option value="Tscan-4.0">Tscan-4.0</option>
+            <option value="Tscan-4.1">Tscan-4.1</option>
+            <option value="Tscan-5.0">Tscan-5.0</option>
+        </select>
+
+        <input type="text" id="editNo">
+        <input type="date" id="editOut">
+        <input type="date" id="editDue">
+        <input type="text" id="editCompany">
+
+        <select id="editStatus">
+            <option value="Sold">Sold</option>
+            <option value="Rent">Rent</option>
+            <option value="Trial">Trial</option>
+            <option value="Service">Service</option>
+        </select>
+
+        <div class="modal-buttons">
+            <button onclick="saveEdit()" class="edit-btn">Save</button>
+            <button onclick="closeModal()" class="delete-btn">Cancel</button>
+        </div>
+    </div>
+</div>
+
 <script>
 let sensors = JSON.parse(localStorage.getItem("sensors") || "[]");
+let editIndex = null;
 
 function save() {
     localStorage.setItem("sensors", JSON.stringify(sensors));
 }
 
 function addSensor() {
-    const sensorType = document.getElementById("sensorType").value;
-    const sensorNo = document.getElementById("sensorNo").value;
-    const outDate = document.getElementById("outDate").value;
-    const dueDate = document.getElementById("dueDate").value;
-    const company = document.getElementById("company").value;
-    const status = document.getElementById("status").value;
+    const sensorType = sensorType.value;
+    const sensorNo = sensorNo.value;
+    const outDate = outDate.value;
+    const dueDate = dueDate.value;
+    const company = company.value;
+    const status = status.value;
 
     if (!sensorType || !sensorNo || !outDate) {
         alert("Sensor Type, Sensor No. and Out Date are required");
@@ -174,36 +220,50 @@ function addSensor() {
     render();
 }
 
-function deleteSensor(index) {
-    sensors.splice(index, 1);
-    save();
+function openEdit(index) {
+    editIndex = index;
+    const s = sensors[index];
+
+    editType.value = s.sensorType;
+    editNo.value = s.sensorNo;
+    editOut.value = s.outDate;
+    editDue.value = s.dueDate;
+    editCompany.value = s.company;
+    editStatus.value = s.status;
+
+    document.getElementById("editModal").style.display = "flex";
+}
+
+function closeModal() {
+    document.getElementById("editModal").style.display = "none";
+}
+
+function saveEdit() {
+    const old = sensors[editIndex];
+
+    const updated = {
+        sensorType: editType.value,
+        sensorNo: editNo.value,
+        outDate: editOut.value,
+        dueDate: editDue.value,
+        company: editCompany.value,
+        status: editStatus.value
+    };
+
+    // Check if anything changed
+    const changed = JSON.stringify(old) !== JSON.stringify(updated);
+
+    if (changed) {
+        sensors[editIndex] = updated;
+        save();
+    }
+
+    closeModal();
     render();
 }
 
-function editSensor(index) {
-    const s = sensors[index];
-
-    const newType = prompt("Edit Sensor Type:", s.sensorType);
-    const newNo = prompt("Edit Sensor No:", s.sensorNo);
-    const newOut = prompt("Edit Out Date (YYYY-MM-DD):", s.outDate);
-    const newDue = prompt("Edit Due Date (YYYY-MM-DD or empty):", s.dueDate);
-    const newCompany = prompt("Edit Company Name:", s.company);
-    const newStatus = prompt("Edit Status (Sold/Rent/Trial/Service):", s.status);
-
-    if (!newType || !newNo || !newOut) {
-        alert("Type, Sensor No. and Out Date cannot be empty");
-        return;
-    }
-
-    sensors[index] = {
-        sensorType: newType,
-        sensorNo: newNo,
-        outDate: newOut,
-        dueDate: newDue,
-        company: newCompany,
-        status: newStatus
-    };
-
+function deleteSensor(index) {
+    sensors.splice(index, 1);
     save();
     render();
 }
@@ -238,7 +298,7 @@ function render() {
             <td>${s.company || "-"}</td>
             <td>${s.status || "-"}</td>
             <td>
-                <button class="action-btn edit-btn" onclick="editSensor(${index})">Edit</button>
+                <button class="action-btn edit-btn" onclick="openEdit(${index})">Edit</button>
                 <button class="action-btn delete-btn" onclick="deleteSensor(${index})">Delete</button>
             </td>
         `;
