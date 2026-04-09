@@ -3,47 +3,151 @@
 <head>
 <meta charset="UTF-8">
 <title>Sensor Management Dashboard</title>
+
 <style>
-    body { font-family: Arial; margin: 20px; }
-    h2 { margin-bottom: 10px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-    th { background: #f0f0f0; }
-    .overdue { background: #ffb3b3; }
-    .due-soon { background: #fff3b3; }
-    #notificationBox {
-        padding: 10px; background: #e8f4ff; border: 1px solid #90c8ff;
-        margin-bottom: 15px; display: none;
+    body {
+        font-family: Arial, sans-serif;
+        background: #f5f7fa;
+        margin: 0;
+        padding: 20px;
     }
+
+    .container {
+        max-width: 1100px;
+        margin: auto;
+        background: white;
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+        margin-top: 0;
+        text-align: center;
+    }
+
+    .input-row {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    input, select, button {
+        padding: 10px;
+        font-size: 14px;
+        border-radius: 5px;
+        border: 1px solid #ccc;
+    }
+
+    button {
+        background: #007bff;
+        color: white;
+        cursor: pointer;
+        border: none;
+    }
+
+    button:hover {
+        background: #0056b3;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+    }
+
+    th, td {
+        padding: 10px;
+        border-bottom: 1px solid #ddd;
+        text-align: center;
+    }
+
+    th {
+        background: #f0f0f0;
+    }
+
+    .overdue {
+        background: #ffb3b3;
+    }
+
+    .due-soon {
+        background: #fff3b3;
+    }
+
+    #notificationBox {
+        padding: 12px;
+        background: #e8f4ff;
+        border: 1px solid #90c8ff;
+        border-radius: 5px;
+        margin-bottom: 15px;
+        display: none;
+        font-weight: bold;
+    }
+
+    .action-btn {
+        padding: 6px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: none;
+        color: white;
+    }
+
+    .edit-btn { background: #28a745; }
+    .delete-btn { background: #dc3545; }
 </style>
 </head>
+
 <body>
+<div class="container">
 
 <h2>Sensor Management</h2>
 
 <div id="notificationBox"></div>
 
-<label>Sensor No:</label>
-<input type="text" id="sensorNo">
+<div class="input-row">
+    <select id="sensorType">
+        <option value="">Select Sensor Type</option>
+        <option value="Tscan-4.0">Tscan-4.0</option>
+        <option value="Tscan-4.1">Tscan-4.1</option>
+        <option value="Tscan-5.0">Tscan-5.0</option>
+    </select>
 
-<label>Out Date:</label>
-<input type="date" id="outDate">
+    <input type="text" id="sensorNo" placeholder="Sensor No.">
 
-<label>Due Date (optional):</label>
-<input type="date" id="dueDate">
+    <input type="date" id="outDate">
 
-<button onclick="addSensor()">Add Sensor</button>
+    <input type="date" id="dueDate">
+
+    <input type="text" id="company" placeholder="Company Name">
+
+    <select id="status">
+        <option value="">Select Status</option>
+        <option value="Sold">Sold</option>
+        <option value="Rent">Rent</option>
+        <option value="Trial">Trial</option>
+        <option value="Service">Service</option>
+    </select>
+
+    <button onclick="addSensor()">Add</button>
+</div>
 
 <table id="sensorTable">
     <thead>
         <tr>
+            <th>Type</th>
             <th>Sensor No.</th>
             <th>Out Date</th>
             <th>Due Date</th>
+            <th>Company</th>
+            <th>Status</th>
+            <th>Actions</th>
         </tr>
     </thead>
     <tbody></tbody>
 </table>
+
+</div>
 
 <script>
 let sensors = JSON.parse(localStorage.getItem("sensors") || "[]");
@@ -53,13 +157,53 @@ function save() {
 }
 
 function addSensor() {
+    const sensorType = document.getElementById("sensorType").value;
     const sensorNo = document.getElementById("sensorNo").value;
     const outDate = document.getElementById("outDate").value;
     const dueDate = document.getElementById("dueDate").value;
+    const company = document.getElementById("company").value;
+    const status = document.getElementById("status").value;
 
-    if (!sensorNo || !outDate) return alert("Sensor No. and Out Date required");
+    if (!sensorType || !sensorNo || !outDate) {
+        alert("Sensor Type, Sensor No. and Out Date are required");
+        return;
+    }
 
-    sensors.push({ sensorNo, outDate, dueDate });
+    sensors.push({ sensorType, sensorNo, outDate, dueDate, company, status });
+    save();
+    render();
+}
+
+function deleteSensor(index) {
+    sensors.splice(index, 1);
+    save();
+    render();
+}
+
+function editSensor(index) {
+    const s = sensors[index];
+
+    const newType = prompt("Edit Sensor Type:", s.sensorType);
+    const newNo = prompt("Edit Sensor No:", s.sensorNo);
+    const newOut = prompt("Edit Out Date (YYYY-MM-DD):", s.outDate);
+    const newDue = prompt("Edit Due Date (YYYY-MM-DD or empty):", s.dueDate);
+    const newCompany = prompt("Edit Company Name:", s.company);
+    const newStatus = prompt("Edit Status (Sold/Rent/Trial/Service):", s.status);
+
+    if (!newType || !newNo || !newOut) {
+        alert("Type, Sensor No. and Out Date cannot be empty");
+        return;
+    }
+
+    sensors[index] = {
+        sensorType: newType,
+        sensorNo: newNo,
+        outDate: newOut,
+        dueDate: newDue,
+        company: newCompany,
+        status: newStatus
+    };
+
     save();
     render();
 }
@@ -70,10 +214,9 @@ function render() {
     const now = new Date();
     let notifications = [];
 
-    sensors.forEach(s => {
+    sensors.forEach((s, index) => {
         const tr = document.createElement("tr");
 
-        // Due date logic
         if (s.dueDate) {
             const due = new Date(s.dueDate);
             const diff = (due - now) / (1000 * 60 * 60 * 24);
@@ -88,10 +231,18 @@ function render() {
         }
 
         tr.innerHTML = `
+            <td>${s.sensorType}</td>
             <td>${s.sensorNo}</td>
             <td>${s.outDate}</td>
             <td>${s.dueDate || "-"}</td>
+            <td>${s.company || "-"}</td>
+            <td>${s.status || "-"}</td>
+            <td>
+                <button class="action-btn edit-btn" onclick="editSensor(${index})">Edit</button>
+                <button class="action-btn delete-btn" onclick="deleteSensor(${index})">Delete</button>
+            </td>
         `;
+
         tbody.appendChild(tr);
     });
 
@@ -105,9 +256,8 @@ function render() {
 }
 
 render();
-setInterval(render, 60000); // check every minute
+setInterval(render, 60000);
 </script>
 
 </body>
 </html>
-
