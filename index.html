@@ -2,6 +2,707 @@
 <html>
 <head>
 <meta charset="UTF-8">
+<title>Tailorlux Sensor Management</title>
+<style>
+    * { box-sizing: border-box; }
+
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #eef1f5;
+        color: #333;
+    }
+
+    .app {
+        display: flex;
+        height: 100vh;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+        width: 230px;
+        background: #f3f4f6;
+        border-right: 1px solid #d0d4dc;
+        display: flex;
+        flex-direction: column;
+        padding: 15px 0;
+    }
+
+    .sidebar-title {
+        padding: 0 20px 10px;
+        font-weight: bold;
+        font-size: 16px;
+        color: #0056b3;
+    }
+
+    .nav-item {
+        padding: 10px 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        color: #333;
+        font-size: 14px;
+    }
+
+    .nav-item span.icon {
+        width: 20px;
+        text-align: center;
+    }
+
+    .nav-item:hover {
+        background: #e3ecff;
+    }
+
+    .nav-item.active {
+        background: #007bff;
+        color: white;
+    }
+
+    .nav-item.active span.icon {
+        color: white;
+    }
+
+    .sidebar-footer {
+        margin-top: auto;
+        padding: 10px 20px;
+        font-size: 12px;
+        color: #777;
+    }
+
+    /* MAIN AREA */
+    .main {
+        flex: 1;
+        padding: 20px 25px;
+        overflow-y: auto;
+    }
+
+    .main-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+    }
+
+    .main-header h2 {
+        margin: 0;
+        font-size: 22px;
+    }
+
+    #searchBar {
+        padding: 8px 10px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        min-width: 260px;
+        font-size: 14px;
+    }
+
+    .section {
+        background: white;
+        border-radius: 10px;
+        padding: 15px 18px;
+        box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    }
+
+    .section h3 {
+        margin-top: 0;
+        margin-bottom: 12px;
+        font-size: 18px;
+        color: #0056b3;
+    }
+
+    /* FORM */
+    .input-row {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    input, select, button, textarea {
+        font-size: 13px;
+        padding: 8px 9px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        background: #fafafa;
+    }
+
+    textarea {
+        resize: vertical;
+    }
+
+    button {
+        background: #007bff;
+        color: white;
+        cursor: pointer;
+        border: none;
+        transition: 0.15s;
+    }
+
+    button:hover {
+        background: #0056b3;
+        transform: scale(1.02);
+    }
+
+    .danger-btn {
+        background: #dc3545;
+    }
+
+    .danger-btn:hover {
+        background: #b52a37;
+    }
+
+    .secondary-btn {
+        background: #6c757d;
+    }
+
+    .secondary-btn:hover {
+        background: #545b62;
+    }
+
+    /* TABLE */
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
+        font-size: 13px;
+    }
+
+    th, td {
+        padding: 7px 6px;
+        border-bottom: 1px solid #eee;
+        text-align: left;
+    }
+
+    th {
+        background: #f4f5f7;
+        font-weight: bold;
+    }
+
+    tr:hover {
+        background: #f9fafc;
+    }
+
+    .action-btn {
+        padding: 4px 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: none;
+        color: white;
+        font-size: 12px;
+    }
+
+    .edit-btn { background: #28a745; }
+    .delete-btn { background: #dc3545; }
+
+    /* MODAL */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.4);
+        justify-content: center;
+        align-items: center;
+        z-index: 10;
+    }
+
+    .modal-content {
+        background: white;
+        padding: 18px;
+        width: 420px;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+
+    .modal-content h3 {
+        margin-top: 0;
+        margin-bottom: 10px;
+    }
+
+    .modal-content input,
+    .modal-content select,
+    .modal-content textarea {
+        width: 100%;
+        margin-bottom: 10px;
+        padding: 8px 9px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        background: #fafafa;
+        font-size: 13px;
+    }
+
+    .modal-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 5px;
+    }
+
+    .readonly {
+        background: #e9ecef;
+    }
+
+    .small-note {
+        font-size: 12px;
+        color: #777;
+        margin-top: 5px;
+    }
+</style>
+</head>
+<body>
+
+<div class="app">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-title">Tailorlux Sensors</div>
+
+        <div class="nav-item active" data-view="overview" onclick="switchView('overview', this)">
+            <span class="icon">📊</span> <span>Inventory Overview</span>
+        </div>
+        <div class="nav-item" data-view="L05" onclick="switchView('L05', this)">
+            <span class="icon">📦</span> <span>L05 – Sale</span>
+        </div>
+        <div class="nav-item" data-view="L06" onclick="switchView('L06', this)">
+            <span class="icon">🧩</span> <span>L06 – Damaged</span>
+        </div>
+        <div class="nav-item" data-view="L07" onclick="switchView('L07', this)">
+            <span class="icon">🚚</span> <span>L07 – Rental</span>
+        </div>
+        <div class="nav-item" data-view="L08" onclick="switchView('L08', this)">
+            <span class="icon">🛠️</span> <span>L08 – Service</span>
+        </div>
+
+        <div class="nav-item" data-view="files" onclick="switchView('files', this)">
+            <span class="icon">📁</span> <span>Upload / Download Files</span>
+        </div>
+        <div class="nav-item" data-view="settings" onclick="switchView('settings', this)">
+            <span class="icon">⚙️</span> <span>Settings</span>
+        </div>
+
+        <div class="sidebar-footer">
+            Tailorlux Sample Tools<br>Sensor Manager
+        </div>
+    </div>
+
+    <!-- MAIN AREA -->
+    <div class="main">
+        <div class="main-header">
+            <h2 id="viewTitle">Inventory Overview</h2>
+            <input type="text" id="searchBar" placeholder="Global search (sensor no, company, comment...)" onkeyup="render()">
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div id="mainContent"></div>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal" id="editModal">
+    <div class="modal-content">
+        <h3>Edit Sensor Entry</h3>
+        <input type="text" id="editType" class="readonly" readonly>
+        <input type="text" id="editNo">
+        <input type="date" id="editOut">
+        <input type="date" id="editDue">
+        <input type="text" id="editCompany">
+
+        <select id="editLagerPlace" onchange="updateEditIntendedUseFromMap(false)">
+            <option value="L05">L05</option>
+            <option value="L06">L06</option>
+            <option value="L07">L07</option>
+            <option value="L08">L08</option>
+        </select>
+
+        <input type="text" id="editIntendedUse">
+        <textarea id="editComment" rows="3" placeholder="Comment"></textarea>
+
+        <div class="modal-buttons">
+            <button class="secondary-btn" onclick="closeModal()">Cancel</button>
+            <button class="edit-btn" onclick="saveEdit()">Save</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // DATA
+    let sensors = JSON.parse(localStorage.getItem("sensors") || "[]");
+    let currentView = "overview";
+    let editId = null;
+
+    const intendedMap = {
+        L05: "Sale",
+        L06: "Currently damaged / not usable",
+        L07: "Rental devices",
+        L08: "Service & repair – third party"
+    };
+
+    function save() {
+        localStorage.setItem("sensors", JSON.stringify(sensors));
+    }
+
+    function getSensorType(no) {
+        const n = parseInt(no);
+        if (n >= 1 && n <= 100) return "Tscan-4.0";
+        if (n >= 101 && n <= 200) return "Tscan-4.1";
+        if (n >= 301) return "Tscan-5.0";
+        return "";
+    }
+
+    // VIEW SWITCHING
+    function switchView(view, el) {
+        currentView = view;
+        document.querySelectorAll(".nav-item").forEach(i => i.classList.remove("active"));
+        el.classList.add("active");
+
+        const titles = {
+            overview: "Inventory Overview",
+            L05: "L05 – Sale",
+            L06: "L06 – Damaged / Not Usable",
+            L07: "L07 – Rental Devices",
+            L08: "L08 – Service & Repair",
+            files: "Upload / Download Files",
+            settings: "Settings"
+        };
+        document.getElementById("viewTitle").innerText = titles[view] || "Sensor Management";
+
+        render();
+    }
+
+    // RENDER MAIN CONTENT
+    function render() {
+        const container = document.getElementById("mainContent");
+        container.innerHTML = "";
+
+        if (currentView === "files") {
+            renderFilesView(container);
+        } else if (currentView === "settings") {
+            renderSettingsView(container);
+        } else {
+            renderTableView(container);
+        }
+    }
+
+    // FORM + TABLE VIEW
+    function renderTableView(container) {
+        const section = document.createElement("div");
+        section.className = "section";
+
+        // FORM
+        section.innerHTML = `
+            <h3>Add Sensor Entry</h3>
+            <div class="input-row">
+                <input type="text" id="sensorNo" placeholder="Sensor No.">
+                <input type="date" id="outDate">
+                <input type="date" id="dueDate">
+                <input type="text" id="company" placeholder="Company Name">
+                <select id="lagerPlace" onchange="updateIntendedUseFromMap()">
+                    <option value="">Storage Location</option>
+                    <option value="L05">L05</option>
+                    <option value="L06">L06</option>
+                    <option value="L07">L07</option>
+                    <option value="L08">L08</option>
+                </select>
+                <input type="text" id="intendedUse" placeholder="Intended Use (auto, editable)">
+                <button onclick="addSensor()">Add</button>
+            </div>
+            <textarea id="comment" rows="2" placeholder="Comment"></textarea>
+            <div class="small-note">
+                Note: Each change creates a new entry (history). Nothing is overwritten automatically.
+            </div>
+        `;
+
+        // TABLE
+        const table = document.createElement("table");
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Sensor No.</th>
+                    <th>Out Date</th>
+                    <th>Due Date</th>
+                    <th>Company</th>
+                    <th>Lager Place</th>
+                    <th>Intended Use</th>
+                    <th>Comment</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        `;
+
+        section.appendChild(table);
+        container.appendChild(section);
+
+        const tbody = table.querySelector("tbody");
+        const search = document.getElementById("searchBar").value.toLowerCase();
+
+        sensors
+            .filter(s => {
+                // global search first
+                const text = Object.values(s).join(" ").toLowerCase();
+                if (search && !text.includes(search)) return false;
+
+                // if search is active -> ignore view filter (show all matches)
+                if (search) return true;
+
+                // otherwise filter by current view
+                if (currentView === "overview") return true;
+                return s.lagerPlace === currentView;
+            })
+            .forEach(s => {
+                const tr = document.createElement("tr");
+                tr.innerHTML = `
+                    <td>${s.sensorType}</td>
+                    <td>${s.sensorNo}</td>
+                    <td>${s.outDate || "-"}</td>
+                    <td>${s.dueDate || "-"}</td>
+                    <td>${s.company || "-"}</td>
+                    <td>${s.lagerPlace}</td>
+                    <td>${s.intendedUse || "-"}</td>
+                    <td>${s.comment || "-"}</td>
+                    <td>
+                        <button class="action-btn edit-btn" onclick="openEdit('${s.id}')">Edit</button>
+                        <button class="action-btn delete-btn" onclick="deleteSensor('${s.id}')">Delete</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+    }
+
+    // FILES VIEW
+    function renderFilesView(container) {
+        const section = document.createElement("div");
+        section.className = "section";
+        section.innerHTML = `
+            <h3>Upload / Download Sensor Data</h3>
+            <p>Use JSON files to backup or restore your sensor list.</p>
+            <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
+                <button onclick="downloadData()">📥 Download JSON</button>
+                <input type="file" id="uploadFile" onchange="uploadData()">
+                <button class="danger-btn" onclick="clearAll()">🗑️ Clear All Data</button>
+            </div>
+            <div class="small-note">
+                Download creates a JSON file with all entries. Upload replaces the current list with the file content.
+            </div>
+        `;
+        container.appendChild(section);
+    }
+
+    // SETTINGS VIEW
+    function renderSettingsView(container) {
+        const section = document.createElement("div");
+        section.className = "section";
+        section.innerHTML = `
+            <h3>Settings</h3>
+            <p>Current automatic rules:</p>
+            <ul>
+                <li>Sensor Type:
+                    <ul>
+                        <li>1–100 → Tscan-4.0</li>
+                        <li>101–200 → Tscan-4.1</li>
+                        <li>301+ → Tscan-5.0</li>
+                    </ul>
+                </li>
+                <li>Storage Location → Intended Use (default, editable per entry):
+                    <ul>
+                        <li>L05 → ${intendedMap.L05}</li>
+                        <li>L06 → ${intendedMap.L06}</li>
+                        <li>L07 → ${intendedMap.L07}</li>
+                        <li>L08 → ${intendedMap.L08}</li>
+                    </ul>
+                </li>
+            </ul>
+            <p class="small-note">
+                These rules are hard-coded in this version. If you want a separate settings editor later, we can add it.
+            </p>
+        `;
+        container.appendChild(section);
+    }
+
+    // FORM HELPERS
+    function updateIntendedUseFromMap() {
+        const lp = document.getElementById("lagerPlace").value;
+        const field = document.getElementById("intendedUse");
+        if (!field.value) {
+            field.value = intendedMap[lp] || "";
+        }
+    }
+
+    function updateEditIntendedUseFromMap(force = false) {
+        const lp = document.getElementById("editLagerPlace").value;
+        const field = document.getElementById("editIntendedUse");
+        if (force || !field.value) {
+            field.value = intendedMap[lp] || "";
+        }
+    }
+
+    // ADD SENSOR (creates new entry, never overwrites)
+    function addSensor() {
+        const no = document.getElementById("sensorNo").value.trim();
+        const outDate = document.getElementById("outDate").value;
+        const dueDate = document.getElementById("dueDate").value;
+        const company = document.getElementById("company").value.trim();
+        const lagerPlace = document.getElementById("lagerPlace").value;
+        const intendedUse = document.getElementById("intendedUse").value.trim();
+        const comment = document.getElementById("comment").value.trim();
+
+        if (!no || !lagerPlace) {
+            alert("Sensor No. and Storage Location are required.");
+            return;
+        }
+
+        const type = getSensorType(no);
+        if (!type) {
+            alert("Sensor No. is outside defined ranges (1–100, 101–200, 301+).");
+            return;
+        }
+
+        const entry = {
+            id: Date.now().toString() + Math.random().toString(16).slice(2),
+            sensorType: type,
+            sensorNo: no,
+            outDate,
+            dueDate,
+            company,
+            lagerPlace,
+            intendedUse,
+            comment
+        };
+
+        sensors.push(entry);
+        save();
+        clearForm();
+        render();
+    }
+
+    function clearForm() {
+        ["sensorNo","outDate","dueDate","company","lagerPlace","intendedUse","comment"]
+            .forEach(id => document.getElementById(id) && (document.getElementById(id).value = ""));
+    }
+
+    // EDIT / DELETE
+    function openEdit(id) {
+        const s = sensors.find(x => x.id === id);
+        if (!s) return;
+
+        editId = id;
+        document.getElementById("editType").value = s.sensorType;
+        document.getElementById("editNo").value = s.sensorNo;
+        document.getElementById("editOut").value = s.outDate || "";
+        document.getElementById("editDue").value = s.dueDate || "";
+        document.getElementById("editCompany").value = s.company || "";
+        document.getElementById("editLagerPlace").value = s.lagerPlace || "L05";
+        document.getElementById("editIntendedUse").value = s.intendedUse || "";
+        document.getElementById("editComment").value = s.comment || "";
+
+        document.getElementById("editModal").style.display = "flex";
+    }
+
+    function closeModal() {
+        document.getElementById("editModal").style.display = "none";
+        editId = null;
+    }
+
+    function saveEdit() {
+        const s = sensors.find(x => x.id === editId);
+        if (!s) return;
+
+        const no = document.getElementById("editNo").value.trim();
+        const outDate = document.getElementById("editOut").value;
+        const dueDate = document.getElementById("editDue").value;
+        const company = document.getElementById("editCompany").value.trim();
+        const lagerPlace = document.getElementById("editLagerPlace").value;
+        const intendedUse = document.getElementById("editIntendedUse").value.trim();
+        const comment = document.getElementById("editComment").value.trim();
+
+        if (!no || !lagerPlace) {
+            alert("Sensor No. and Storage Location are required.");
+            return;
+        }
+
+        const type = getSensorType(no);
+        if (!type) {
+            alert("Sensor No. is outside defined ranges (1–100, 101–200, 301+).");
+            return;
+        }
+
+        s.sensorType = type;
+        s.sensorNo = no;
+        s.outDate = outDate;
+        s.dueDate = dueDate;
+        s.company = company;
+        s.lagerPlace = lagerPlace;
+        s.intendedUse = intendedUse;
+        s.comment = comment;
+
+        save();
+        closeModal();
+        render();
+    }
+
+    function deleteSensor(id) {
+        if (!confirm("Delete this entry?")) return;
+        sensors = sensors.filter(s => s.id !== id);
+        save();
+        render();
+    }
+
+    // FILES
+    function downloadData() {
+        const json = JSON.stringify(sensors, null, 2);
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const today = new Date().toISOString().split("T")[0];
+        a.download = `Tailorlux_Sensors_${today}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function uploadData() {
+        const file = document.getElementById("uploadFile").files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (!Array.isArray(data)) throw new Error("Invalid format");
+                // ensure IDs exist
+                data.forEach(d => {
+                    if (!d.id) {
+                        d.id = Date.now().toString() + Math.random().toString(16).slice(2);
+                    }
+                });
+                sensors = data;
+                save();
+                render();
+            } catch (err) {
+                alert("Invalid or corrupted JSON file.");
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function clearAll() {
+        if (!confirm("Really delete ALL sensor entries?")) return;
+        sensors = [];
+        save();
+        render();
+    }
+
+    // INIT
+    render();
+</script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
 <title>Tailorlux Inventory Management</title>
 
 <style>
