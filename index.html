@@ -327,7 +327,6 @@
 <script>
     // DATA
     let sensors = JSON.parse(localStorage.getItem("sensors") || "[]");
-    let uploadedSensors = []; // NEW: store uploaded entries separately
     let currentView = "overview";
     let editId = null;
 
@@ -440,9 +439,14 @@
 
         sensors
             .filter(s => {
+                // global search first
                 const text = Object.values(s).join(" ").toLowerCase();
                 if (search && !text.includes(search)) return false;
+
+                // if search is active -> ignore view filter (show all matches)
                 if (search) return true;
+
+                // otherwise filter by current view
                 if (currentView === "overview") return true;
                 return s.lagerPlace === currentView;
             })
@@ -476,12 +480,10 @@
             <div style="display:flex; gap:10px; margin-bottom:10px; flex-wrap:wrap;">
                 <button onclick="downloadData()">📥 Download JSON</button>
                 <input type="file" id="uploadFile" onchange="uploadData()">
-                <button class="secondary-btn" onclick="clearUploadedOnly()">🗑️ Clear Uploaded File Only</button>
                 <button class="danger-btn" onclick="clearAll()">🗑️ Clear All Data</button>
             </div>
             <div class="small-note">
-                Download creates a JSON file with all entries. Upload merges entries into your list.
-                “Clear Uploaded File Only” removes only the entries that came from the uploaded file.
+                Download creates a JSON file with all entries. Upload replaces the current list with the file content.
             </div>
         `;
         container.appendChild(section);
@@ -511,6 +513,9 @@
                     </ul>
                 </li>
             </ul>
+            <p class="small-note">
+                These rules are hard-coded in this version. If you want a separate settings editor later, we can add it.
+            </p>
         `;
         container.appendChild(section);
     }
@@ -540,4 +545,157 @@
         const company = document.getElementById("company").value.trim();
         const lagerPlace = document.getElementById("lagerPlace").value;
         const intendedUse = document.getElementById("intendedUse").value.trim();
-        const comment = document.getElementById("comment
+        const comment = document.getElementById("comment").value.trim();
+
+        if (!no || !lagerPlace) {
+            alert("Sensor No. and Storage Location are required.");
+            return;
+        }
+
+        const type = getSensorType(no);
+        if (!type) {
+            alert("Sensor No. is outside defined ranges (1–100, 101–200, 301+).");
+            return;
+        }
+
+        const entry = {
+            id: Date.now().toString() + Math.random().toString(16).slice(2),
+            sensorType: type,
+            sensorNo: no,
+            outDate,
+            dueDate,
+            company,
+            lagerPlace,
+            intendedUse,
+            comment
+        };
+
+        sensors.push(entry);
+        save();
+        clearForm();
+        render();
+    }
+
+    function clearForm() {
+        ["sensorNo","outDate","dueDate","company","lagerPlace","intendedUse","comment"]
+            .forEach(id => document.getElementById(id) && (document.getElementById(id).value = ""));
+    }
+
+    // EDIT / DELETE
+    function openEdit(id) {
+        const s = sensors.find(x => x.id === id);
+        if (!s) return;
+
+        editId = id;
+        document.getElementById("editType").value = s.sensorType;
+        document.getElementById("editNo").value = s.sensorNo;
+        document.getElementById("editOut").value = s.outDate || "";
+        document.getElementById("editDue").value = s.dueDate || "";
+        document.getElementById("editCompany").value = s.company || "";
+        document.getElementById("editLagerPlace").value = s.lagerPlace || "L05";
+        document.getElementById("editIntendedUse").value = s.intendedUse || "";
+        document.getElementById("editComment").value = s.comment || "";
+
+        document.getElementById("editModal").style.display = "flex";
+    }
+
+    function closeModal() {
+        document.getElementById("editModal").style.display = "none";
+        editId = null;
+    }
+
+    function saveEdit() {
+        const s = sensors.find(x => x.id === editId);
+        if (!s) return;
+
+        const no = document.getElementById("editNo").value.trim();
+        const outDate = document.getElementById("editOut").value;
+        const dueDate = document.getElementById("editDue").value;
+        const company = document.getElementById("editCompany").value.trim();
+        const lagerPlace = document.getElementById("editLagerPlace").value;
+        const intendedUse = document.getElementById("editIntendedUse").value.trim();
+        const comment = document.getElementById("editComment").value.trim();
+
+        if (!no || !lagerPlace) {
+            alert("Sensor No. and Storage Location are required.");
+            return;
+        }
+
+        const type = getSensorType(no);
+        if (!type) {
+            alert("Sensor No. is outside defined ranges (1–100, 101–200, 301+).");
+            return;
+        }
+
+        s.sensorType = type;
+        s.sensorNo = no;
+        s.outDate = outDate;
+        s.dueDate = dueDate;
+        s.company = company;
+        s.lagerPlace = lagerPlace;
+        s.intendedUse = intendedUse;
+        s.comment = comment;
+
+        save();
+        closeModal();
+        render();
+    }
+
+    function deleteSensor(id) {
+        if (!confirm("Delete this entry?")) return;
+        sensors = sensors.filter(s => s.id !== id);
+        save();
+        render();
+    }
+
+    // FILES
+    function downloadData() {
+        const json = JSON.stringify(sensors, null, 2);
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const today = new Date().toISOString().split("T")[0];
+        a.download = `Tailorlux_Sensors_${today}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function uploadData() {
+        const file = document.getElementById("uploadFile").files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = e => {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (!Array.isArray(data)) throw new Error("Invalid format");
+                // ensure IDs exist
+                data.forEach(d => {
+                    if (!d.id) {
+                        d.id = Date.now().toString() + Math.random().toString(16).slice(2);
+                    }
+                });
+                sensors = data;
+                save();
+                render();
+            } catch (err) {
+                alert("Invalid or corrupted JSON file.");
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function clearAll() {
+        if (!confirm("Really delete ALL sensor entries?")) return;
+        sensors = [];
+        save();
+        render();
+    }
+
+    // INIT
+    render();
+</script>
+
+</body>
+</html>
