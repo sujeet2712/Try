@@ -7,6 +7,420 @@
 <style>
     body {
         font-family: Arial, sans-serif;
+        background: #eef1f5;
+        margin: 0;
+        padding: 20px;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: auto;
+        background: white;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    }
+
+    h2 {
+        text-align: center;
+        margin-bottom: 20px;
+        font-size: 26px;
+        color: #333;
+    }
+
+    .input-row {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+
+    input, select, button {
+        padding: 12px;
+        font-size: 14px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        background: #fafafa;
+    }
+
+    button {
+        background: #007bff;
+        color: white;
+        cursor: pointer;
+        border: none;
+        transition: 0.2s;
+    }
+
+    button:hover {
+        background: #0056b3;
+        transform: scale(1.03);
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    th {
+        background: #f0f0f0;
+        padding: 12px;
+        font-weight: bold;
+    }
+
+    td {
+        padding: 10px;
+        border-bottom: 1px solid #eee;
+    }
+
+    tr:hover {
+        background: #f9f9f9;
+    }
+
+    .overdue { background: #ffb3b3 !important; }
+    .due-soon { background: #fff3b3 !important; }
+
+    #notificationBox {
+        padding: 12px;
+        background: #e8f4ff;
+        border: 1px solid #90c8ff;
+        border-radius: 6px;
+        margin-bottom: 15px;
+        display: none;
+        font-weight: bold;
+    }
+
+    .action-btn {
+        padding: 6px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        border: none;
+        color: white;
+    }
+
+    .edit-btn { background: #28a745; }
+    .delete-btn { background: #dc3545; }
+
+    /* Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: rgba(0,0,0,0.4);
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-content {
+        background: white;
+        padding: 20px;
+        width: 420px;
+        border-radius: 10px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+
+    .modal-content input,
+    .modal-content select,
+    .modal-content textarea {
+        width: 100%;
+        margin-bottom: 12px;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        background: #fafafa;
+    }
+
+    .readonly {
+        background: #e9e9e9;
+    }
+
+    .modal-buttons {
+        display: flex;
+        justify-content: space-between;
+    }
+
+    .file-row {
+        margin-top: 10px;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<h2>Sensor Management</h2>
+
+<div id="notificationBox"></div>
+
+<div class="input-row">
+    <input type="text" id="sensorNo" placeholder="Sensor No.">
+    <input type="date" id="outDate">
+    <input type="date" id="dueDate">
+    <input type="text" id="company" placeholder="Company Name">
+    <input type="text" id="lagerPlace" placeholder="Lager Place">
+    <select id="status">
+        <option value="">Status</option>
+        <option value="Sold">Sold</option>
+        <option value="Rent">Rent</option>
+        <option value="Trial">Trial</option>
+        <option value="Service">Service</option>
+    </select>
+    <input type="text" id="comment" placeholder="Comment">
+    <button onclick="addSensor()">Add</button>
+</div>
+
+<div class="file-row">
+    <button onclick="downloadData()">Download Sheet</button>
+    <input type="file" id="uploadFile" onchange="uploadData()">
+</div>
+
+<table id="sensorTable">
+    <thead>
+        <tr>
+            <th>Type</th>
+            <th>Sensor No.</th>
+            <th>Out Date</th>
+            <th>Due Date</th>
+            <th>Company</th>
+            <th>Lager Place</th>
+            <th>Status</th>
+            <th>Comment</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal" id="editModal">
+    <div class="modal-content">
+        <h3>Edit Sensor</h3>
+
+        <input type="text" id="editType" class="readonly" readonly>
+        <input type="text" id="editNo">
+        <input type="date" id="editOut">
+        <input type="date" id="editDue">
+        <input type="text" id="editCompany">
+        <input type="text" id="editLagerPlace">
+        <select id="editStatus">
+            <option value="Sold">Sold</option>
+            <option value="Rent">Rent</option>
+            <option value="Trial">Trial</option>
+            <option value="Service">Service</option>
+        </select>
+        <textarea id="editComment" rows="3"></textarea>
+
+        <div class="modal-buttons">
+            <button onclick="saveEdit()" class="edit-btn">Save</button>
+            <button onclick="closeModal()" class="delete-btn">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let sensors = JSON.parse(localStorage.getItem("sensors") || "[]");
+let editIndex = null;
+
+function save() {
+    localStorage.setItem("sensors", JSON.stringify(sensors));
+}
+
+function getSensorType(no) {
+    const n = parseInt(no);
+    if (n >= 1 && n <= 100) return "Tscan-4.0";
+    if (n >= 101 && n <= 200) return "Tscan-4.1";
+    if (n >= 301) return "Tscan-5.0";
+    return "";
+}
+
+function addSensor() {
+    const no = sensorNo.value.trim();
+    const type = getSensorType(no);
+
+    if (!type) {
+        alert("Invalid Sensor No. (1–100, 101–200, 301+)");
+        return;
+    }
+
+    const entry = {
+        sensorType: type,
+        sensorNo: no,
+        outDate: outDate.value,
+        dueDate: dueDate.value,
+        company: company.value.trim(),
+        lagerPlace: lagerPlace.value.trim(),
+        status: status.value,
+        comment: comment.value.trim()
+    };
+
+    if (!entry.sensorNo || !entry.outDate) {
+        alert("Sensor No. and Out Date required");
+        return;
+    }
+
+    sensors.push(entry);
+    save();
+    render();
+
+    sensorNo.value = "";
+    outDate.value = "";
+    dueDate.value = "";
+    company.value = "";
+    lagerPlace.value = "";
+    status.value = "";
+    comment.value = "";
+}
+
+function openEdit(i) {
+    editIndex = i;
+    const s = sensors[i];
+
+    editType.value = s.sensorType;
+    editNo.value = s.sensorNo;
+    editOut.value = s.outDate;
+    editDue.value = s.dueDate;
+    editCompany.value = s.company;
+    editLagerPlace.value = s.lagerPlace;
+    editStatus.value = s.status;
+    editComment.value = s.comment;
+
+    editModal.style.display = "flex";
+}
+
+function closeModal() {
+    editModal.style.display = "none";
+}
+
+function saveEdit() {
+    const old = sensors[editIndex];
+
+    const updated = {
+        sensorType: old.sensorType,
+        sensorNo: editNo.value.trim(),
+        outDate: editOut.value,
+        dueDate: editDue.value,
+        company: editCompany.value.trim(),
+        lagerPlace: editLagerPlace.value.trim(),
+        status: editStatus.value,
+        comment: editComment.value.trim()
+    };
+
+    if (!updated.sensorNo || !updated.outDate) {
+        alert("Sensor No. and Out Date required");
+        return;
+    }
+
+    if (JSON.stringify(old) !== JSON.stringify(updated)) {
+        sensors[editIndex] = updated;
+        save();
+    }
+
+    closeModal();
+    render();
+}
+
+function deleteSensor(i) {
+    sensors.splice(i, 1);
+    save();
+    render();
+}
+
+function downloadData() {
+    try {
+        const json = JSON.stringify(sensors, null, 2);
+        const blob = new Blob([json], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+
+        const today = new Date().toISOString().split("T")[0];
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `Sensor_Management_${today}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    } catch (e) {
+        alert("Download failed");
+    }
+}
+
+function uploadData() {
+    const file = uploadFile.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!Array.isArray(data)) throw "Invalid format";
+
+            sensors = data;
+            save();
+            render();
+        } catch {
+            alert("Invalid or corrupted file");
+        }
+    };
+    reader.readAsText(file);
+}
+
+function render() {
+    const tbody = document.querySelector("#sensorTable tbody");
+    tbody.innerHTML = "";
+    const now = new Date();
+    let notes = [];
+
+    sensors.forEach((s, i) => {
+        const tr = document.createElement("tr");
+
+        if (s.dueDate) {
+            const diff = (new Date(s.dueDate) - now) / 86400000;
+            if (diff < 0) tr.classList.add("overdue");
+            else if (diff <= 1) tr.classList.add("due-soon");
+        }
+
+        tr.innerHTML = `
+            <td>${s.sensorType}</td>
+            <td>${s.sensorNo}</td>
+            <td>${s.outDate}</td>
+            <td>${s.dueDate || "-"}</td>
+            <td>${s.company || "-"}</td>
+            <td>${s.lagerPlace || "-"}</td>
+            <td>${s.status || "-"}</td>
+            <td>${s.comment || "-"}</td>
+            <td>
+                <button class="action-btn edit-btn" onclick="openEdit(${i})">Edit</button>
+                <button class="action-btn delete-btn" onclick="deleteSensor(${i})">Delete</button>
+            </td>
+        `;
+
+        tbody.appendChild(tr);
+    });
+}
+
+render();
+</script>
+
+</body>
+</html>
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Sensor Management Dashboard</title>
+
+<style>
+    body {
+        font-family: Arial, sans-serif;
         background: #f5f7fa;
         margin: 0;
         padding: 20px;
