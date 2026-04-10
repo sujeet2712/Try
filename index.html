@@ -25,16 +25,17 @@
 
     .input-row {
         display: grid;
-        grid-template-columns: repeat(7, 1fr);
+        grid-template-columns: repeat(8, 1fr);
         gap: 10px;
         margin-bottom: 15px;
     }
 
-    input, select, button {
+    input, select, button, textarea {
         padding: 10px;
         font-size: 14px;
         border-radius: 5px;
         border: 1px solid #ccc;
+        box-sizing: border-box;
     }
 
     button {
@@ -84,7 +85,6 @@
     .edit-btn { background: #28a745; }
     .delete-btn { background: #dc3545; }
 
-    /* Modal */
     .modal {
         display: none;
         position: fixed;
@@ -102,7 +102,9 @@
         border-radius: 10px;
     }
 
-    .modal-content input, .modal-content select, .modal-content textarea {
+    .modal-content input,
+    .modal-content select,
+    .modal-content textarea {
         width: 100%;
         margin-bottom: 10px;
     }
@@ -117,605 +119,68 @@
     }
 
     .file-row {
-        margin-top: 20px;
+        margin-top: 10px;
         display: flex;
         gap: 10px;
-    }
-</style>
-</head>
-
-<body>
-<div class="container">
-
-<h2>Sensor Management</h2>
-
-<div id="notificationBox"></div>
-
-<div class="input-row">
-    <input type="text" id="sensorNo" placeholder="Sensor No.">
-    <input type="date" id="outDate">
-    <input type="date" id="dueDate">
-    <input type="text" id="company" placeholder="Company Name">
-    <input type="text" id="lagerPlace" placeholder="Lager Place">
-    <select id="status">
-        <option value="">Select Status</option>
-        <option value="Sold">Sold</option>
-        <option value="Rent">Rent</option>
-        <option value="Trial">Trial</option>
-        <option value="Service">Service</option>
-    </select>
-    <input type="text" id="comment" placeholder="Comment">
-    <button onclick="addSensor()">Add</button>
-</div>
-
-<div class="file-row">
-    <button onclick="downloadData()">Download Sheet</button>
-    <input type="file" id="uploadFile" onchange="uploadData()">
-</div>
-
-<table id="sensorTable">
-    <thead>
-        <tr>
-            <th>Type</th>
-            <th>Sensor No.</th>
-            <th>Out Date</th>
-            <th>Due Date</th>
-            <th>Company</th>
-            <th>Lager Place</th>
-            <th>Status</th>
-            <th>Comment</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-
-</div>
-
-<!-- EDIT MODAL -->
-<div class="modal" id="editModal">
-    <div class="modal-content">
-        <h3>Edit Sensor</h3>
-
-        <input type="text" id="editType" class="readonly" readonly>
-        <input type="text" id="editNo">
-        <input type="date" id="editOut">
-        <input type="date" id="editDue">
-        <input type="text" id="editCompany">
-        <input type="text" id="editLagerPlace">
-        <select id="editStatus">
-            <option value="Sold">Sold</option>
-            <option value="Rent">Rent</option>
-            <option value="Trial">Trial</option>
-            <option value="Service">Service</option>
-        </select>
-        <textarea id="editComment" rows="3" placeholder="Comment"></textarea>
-
-        <div class="modal-buttons">
-            <button onclick="saveEdit()" class="edit-btn">Save</button>
-            <button onclick="closeModal()" class="delete-btn">Cancel</button>
-        </div>
-    </div>
-</div>
-
-<script>
-let sensors = JSON.parse(localStorage.getItem("sensors") || "[]");
-let editIndex = null;
-
-function save() {
-    localStorage.setItem("sensors", JSON.stringify(sensors));
-}
-
-function getSensorType(no) {
-    const n = parseInt(no);
-    if (n >= 1 && n <= 100) return "Tscan-4.0";
-    if (n >= 101 && n <= 200) return "Tscan-4.1";
-    if (n >= 301) return "Tscan-5.0";
-    return "";
-}
-
-function addSensor() {
-    const no = sensorNo.value.trim();
-    const type = getSensorType(no);
-
-    if (!type) {
-        alert("Invalid Sensor No. (valid ranges: 1–100, 101–200, 301+)");
-        return;
-    }
-
-    const entry = {
-        sensorType: type,
-        sensorNo: no,
-        outDate: outDate.value,
-        dueDate: dueDate.value,
-        company: company.value.trim(),
-        lagerPlace: lagerPlace.value.trim(),
-        status: status.value,
-        comment: comment.value.trim()
-    };
-
-    if (!entry.sensorNo || !entry.outDate) {
-        alert("Sensor No. and Out Date required");
-        return;
-    }
-
-    sensors.push(entry);
-    save();
-    render();
-
-    sensorNo.value = "";
-    outDate.value = "";
-    dueDate.value = "";
-    company.value = "";
-    lagerPlace.value = "";
-    status.value = "";
-    comment.value = "";
-}
-
-function openEdit(i) {
-    editIndex = i;
-    const s = sensors[i];
-
-    editType.value = s.sensorType;
-    editNo.value = s.sensorNo;
-    editOut.value = s.outDate;
-    editDue.value = s.dueDate;
-    editCompany.value = s.company;
-    editLagerPlace.value = s.lagerPlace;
-    editStatus.value = s.status;
-    editComment.value = s.comment;
-
-    editModal.style.display = "flex";
-}
-
-function closeModal() {
-    editModal.style.display = "none";
-}
-
-function saveEdit() {
-    const old = sensors[editIndex];
-
-    const updated = {
-        sensorType: old.sensorType,
-        sensorNo: editNo.value.trim(),
-        outDate: editOut.value,
-        dueDate: editDue.value,
-        company: editCompany.value.trim(),
-        lagerPlace: editLagerPlace.value.trim(),
-        status: editStatus.value,
-        comment: editComment.value.trim()
-    };
-
-    if (JSON.stringify(old) !== JSON.stringify(updated)) {
-        sensors[editIndex] = updated;
-        save();
-    }
-
-    closeModal();
-    render();
-}
-
-function deleteSensor(i) {
-    sensors.splice(i, 1);
-    save();
-    render();
-}
-
-function downloadData() {
-    const data = JSON.stringify(sensors, null, 2);
-    const blob = new Blob([data], { type: "application/json" });
-
-    const today = new Date().toISOString().split("T")[0];
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `Sensor_Management_${today}.json`;
-    a.click();
-}
-
-function uploadData() {
-    const file = uploadFile.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = e => {
-        sensors = JSON.parse(e.target.result);
-        save();
-        render();
-    };
-    reader.readAsText(file);
-}
-
-function render() {
-    const tbody = document.querySelector("#sensorTable tbody");
-    tbody.innerHTML = "";
-    const now = new Date();
-    let notes = [];
-
-    sensors.forEach((s, i) => {
-        const tr = document.createElement("tr");
-
-        if (s.dueDate) {
-            const diff = (new Date(s.dueDate) - now) / 86400000;
-            if (diff < 0) tr.classList.add("overdue");
-            else if (diff <= 1) tr.classList.add("due-soon");
-        }
-
-        tr.innerHTML = `
-            <td>${s.sensorType}</td>
-            <td>${s.sensorNo}</td>
-            <td>${s.outDate}</td>
-            <td>${s.dueDate || "-"}</td>
-            <td>${s.company || "-"}</td>
-            <td>${s.lagerPlace || "-"}</td>
-            <td>${s.status || "-"}</td>
-            <td>${s.comment || "-"}</td>
-            <td>
-                <button class="action-btn edit-btn" onclick="openEdit(${i})">Edit</button>
-                <button class="action-btn delete-btn" onclick="deleteSensor(${i})">Delete</button>
-            </td>
-        `;
-
-        tbody.appendChild(tr);
-    });
-}
-
-render();
-</script>
-
-</body>
-</html>
-<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>Sensor Management Dashboard</title>
-
-<style>
-    body {
-        font-family: Arial, sans-serif;
-        background: #f5f7fa;
-        margin: 0;
-        padding: 20px;
-    }
-
-    .container {
-        max-width: 1100px;
-        margin: auto;
-        background: white;
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    }
-
-    h2 { text-align: center; }
-
-    .input-row {
-        display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        gap: 10px;
-        margin-bottom: 15px;
-    }
-
-    input, select, button {
-        padding: 10px;
-        font-size: 14px;
-        border-radius: 5px;
-        border: 1px solid #ccc;
-    }
-
-    button {
-        background: #007bff;
-        color: white;
-        cursor: pointer;
-        border: none;
-    }
-
-    button:hover { background: #0056b3; }
-
-    table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 15px;
-    }
-
-    th, td {
-        padding: 10px;
-        border-bottom: 1px solid #ddd;
-        text-align: center;
-    }
-
-    th { background: #f0f0f0; }
-
-    .overdue { background: #ffb3b3; }
-    .due-soon { background: #fff3b3; }
-
-    #notificationBox {
-        padding: 12px;
-        background: #e8f4ff;
-        border: 1px solid #90c8ff;
-        border-radius: 5px;
-        margin-bottom: 15px;
-        display: none;
-        font-weight: bold;
-    }
-
-    .action-btn {
-        padding: 6px 10px;
-        border-radius: 4px;
-        cursor: pointer;
-        border: none;
-        color: white;
-    }
-
-    .edit-btn { background: #28a745; }
-    .delete-btn { background: #dc3545; }
-
-    /* Modal */
-    .modal {
-        display: none;
-        position: fixed;
-        top: 0; left: 0;
-        width: 100%; height: 100%;
-        background: rgba(0,0,0,0.5);
-        justify-content: center;
         align-items: center;
     }
-
-    .modal-content {
-        background: white;
-        padding: 20px;
-        width: 400px;
-        border-radius: 10px;
-    }
-
-    .modal-content h3 { margin-top: 0; }
-
-    .modal-content input, .modal-content select {
-        width: 100%;
-        margin-bottom: 10px;
-    }
-
-    .modal-buttons {
-        display: flex;
-        justify-content: space-between;
-    }
-
-    .readonly {
-        background: #f3f3f3;
-    }
 </style>
 </head>
 
 <body>
 <div class="container">
 
-<h2>Sensor Management</h2>
+    <h2>Sensor Management</h2>
 
-<div id="notificationBox"></div>
+    <div id="notificationBox"></div>
 
-<div class="input-row">
-    <!-- Sensor type is auto-calculated, so no dropdown here -->
-    <input type="text" id="sensorNo" placeholder="Sensor No.">
-    <input type="date" id="outDate">
-    <input type="date" id="dueDate">
-    <input type="text" id="company" placeholder="Company Name">
-    <input type="text" id="lagerPlace" placeholder="Lager Place">
-    <select id="status">
-        <option value="">Select Status</option>
-        <option value="Sold">Sold</option>
-        <option value="Rent">Rent</option>
-        <option value="Trial">Trial</option>
-        <option value="Service">Service</option>
-    </select>
-
-    <button onclick="addSensor()">Add</button>
-</div>
-
-<table id="sensorTable">
-    <thead>
-        <tr>
-            <th>Type</th>
-            <th>Sensor No.</th>
-            <th>Out Date</th>
-            <th>Due Date</th>
-            <th>Company</th>
-            <th>Lager Place</th>
-            <th>Status</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody></tbody>
-</table>
-
-</div>
-
-<!-- EDIT MODAL -->
-<div class="modal" id="editModal">
-    <div class="modal-content">
-        <h3>Edit Sensor</h3>
-
-        <!-- Sensor type: read-only -->
-        <input type="text" id="editType" class="readonly" readonly>
-
-        <input type="text" id="editNo">
-        <input type="date" id="editOut">
-        <input type="date" id="editDue">
-        <input type="text" id="editCompany">
-        <input type="text" id="editLagerPlace">
-
-        <select id="editStatus">
+    <div class="input-row">
+        <input type="text" id="sensorNo" placeholder="Sensor No.">
+        <input type="date" id="outDate">
+        <input type="date" id="dueDate">
+        <input type="text" id="company" placeholder="Company Name">
+        <input type="text" id="lagerPlace" placeholder="Lager Place">
+        <select id="status">
+            <option value="">Select Status</option>
             <option value="Sold">Sold</option>
             <option value="Rent">Rent</option>
             <option value="Trial">Trial</option>
             <option value="Service">Service</option>
         </select>
-
-        <div class="modal-buttons">
-            <button onclick="saveEdit()" class="edit-btn">Save</button>
-            <button onclick="closeModal()" class="delete-btn">Cancel</button>
-        </div>
+        <input type="text" id="comment" placeholder="Comment">
+        <button onclick="addSensor()">Add</button>
     </div>
+
+    <div class="file-row">
+        <button onclick="downloadData()">Download Sheet</button>
+        <input type="file" id="uploadFile" onchange="uploadData()">
+    </div>
+
+    <table id="sensorTable">
+        <thead>
+            <tr>
+                <th>Type</th>
+                <th>Sensor No.</th>
+                <th>Out Date</th>
+                <th>Due Date</th>
+                <th>Company</th>
+                <th>Lager Place</th>
+                <th>Status</th>
+                <th>Comment</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
 </div>
 
-<script>
-let sensors = JSON.parse(localStorage.getItem("sensors") || "[]");
-let editIndex = null;
+<div class="modal" id="editModal">
+    <div class="modal-content">
+        <h3>Edit Sensor</h3>
 
-function save() {
-    localStorage.setItem("sensors", JSON.stringify(sensors));
-}
-
-// Auto-detect sensor type from sensor number
-function getSensorType(sensorNo) {
-    const n = parseInt(sensorNo, 10);
-    if (isNaN(n)) return "";
-
-    if (n >= 1 && n <= 100) return "Tscan-4.0";
-    if (n >= 101 && n <= 200) return "Tscan-4.1";
-    if (n >= 301) return "Tscan-5.0";
-
-    return "";
-}
-
-function addSensor() {
-    const sensorNoEl = document.getElementById("sensorNo");
-    const outDateEl = document.getElementById("outDate");
-    const dueDateEl = document.getElementById("dueDate");
-    const companyEl = document.getElementById("company");
-    const lagerPlaceEl = document.getElementById("lagerPlace");
-    const statusEl = document.getElementById("status");
-
-    const sensorNo = sensorNoEl.value.trim();
-    const outDate = outDateEl.value;
-    const dueDate = dueDateEl.value;
-    const company = companyEl.value.trim();
-    const lagerPlace = lagerPlaceEl.value.trim();
-    const status = statusEl.value;
-
-    const sensorType = getSensorType(sensorNo);
-
-    if (!sensorNo || !outDate || !sensorType) {
-        alert("Valid Sensor No. (with type), and Out Date are required.\nCheck number ranges: 1–100, 101–200, 301+");
-        return;
-    }
-
-    sensors.push({ sensorType, sensorNo, outDate, dueDate, company, lagerPlace, status });
-    save();
-    render();
-
-    sensorNoEl.value = "";
-    outDateEl.value = "";
-    dueDateEl.value = "";
-    companyEl.value = "";
-    lagerPlaceEl.value = "";
-    statusEl.value = "";
-}
-
-function openEdit(index) {
-    editIndex = index;
-    const s = sensors[index];
-
-    document.getElementById("editType").value = s.sensorType;
-    document.getElementById("editNo").value = s.sensorNo;
-    document.getElementById("editOut").value = s.outDate;
-    document.getElementById("editDue").value = s.dueDate || "";
-    document.getElementById("editCompany").value = s.company || "";
-    document.getElementById("editLagerPlace").value = s.lagerPlace || "";
-    document.getElementById("editStatus").value = s.status || "";
-
-    document.getElementById("editModal").style.display = "flex";
-}
-
-function closeModal() {
-    document.getElementById("editModal").style.display = "none";
-}
-
-function saveEdit() {
-    const old = sensors[editIndex];
-
-    const updated = {
-        sensorType: old.sensorType, // fixed, not editable
-        sensorNo: document.getElementById("editNo").value.trim(),
-        outDate: document.getElementById("editOut").value,
-        dueDate: document.getElementById("editDue").value,
-        company: document.getElementById("editCompany").value.trim(),
-        lagerPlace: document.getElementById("editLagerPlace").value.trim(),
-        status: document.getElementById("editStatus").value
-    };
-
-    if (!updated.sensorNo || !updated.outDate) {
-        alert("Sensor No. and Out Date cannot be empty");
-        return;
-    }
-
-    const changed = JSON.stringify(old) !== JSON.stringify(updated);
-
-    if (changed) {
-        sensors[editIndex] = updated;
-        save();
-    }
-
-    closeModal();
-    render();
-}
-
-function deleteSensor(index) {
-    sensors.splice(index, 1);
-    save();
-    render();
-}
-
-function render() {
-    const tbody = document.querySelector("#sensorTable tbody");
-    tbody.innerHTML = "";
-    const now = new Date();
-    let notifications = [];
-
-    sensors.forEach((s, index) => {
-        const tr = document.createElement("tr");
-
-        if (s.dueDate) {
-            const due = new Date(s.dueDate);
-            const diff = (due - now) / (1000 * 60 * 60 * 24);
-
-            if (diff < 0) {
-                tr.classList.add("overdue");
-                notifications.push(`Sensor ${s.sensorNo} is OVERDUE`);
-            } else if (diff <= 1) {
-                tr.classList.add("due-soon");
-                notifications.push(`Sensor ${s.sensorNo} is due soon`);
-            }
-        }
-
-        tr.innerHTML = `
-            <td>${s.sensorType}</td>
-            <td>${s.sensorNo}</td>
-            <td>${s.outDate}</td>
-            <td>${s.dueDate || "-"}</td>
-            <td>${s.company || "-"}</td>
-            <td>${s.lagerPlace || "-"}</td>
-            <td>${s.status || "-"}</td>
-            <td>
-                <button class="action-btn edit-btn" onclick="openEdit(${index})">Edit</button>
-                <button class="action-btn delete-btn" onclick="deleteSensor(${index})">Delete</button>
-            </td>
-        `;
-
-        tbody.appendChild(tr);
-    });
-
-    const box = document.getElementById("notificationBox");
-    if (notifications.length > 0) {
-        box.style.display = "block";
-        box.innerHTML = notifications.join("<br>");
-    } else {
-        box.style.display = "none";
-    }
-}
-
-render();
-setInterval(render, 60000);
-</script>
-
-</body>
-</html>
+        <input type="text" id="editType" class="readonly" readonly>
+        <input type="text" id="editNo">
+        <input type="date" id="editOut">
+        <input type="date" id="editDue">
+        <input type="text" id="editCompany">
