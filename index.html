@@ -113,6 +113,10 @@
         display: flex;
         justify-content: space-between;
     }
+
+    .readonly {
+        background: #f3f3f3;
+    }
 </style>
 </head>
 
@@ -124,18 +128,12 @@
 <div id="notificationBox"></div>
 
 <div class="input-row">
-    <select id="sensorType">
-        <option value="">Select Sensor Type</option>
-        <option value="Tscan-4.0">Tscan-4.0</option>
-        <option value="Tscan-4.1">Tscan-4.1</option>
-        <option value="Tscan-5.0">Tscan-5.0</option>
-    </select>
-
+    <!-- Sensor type is auto-calculated, so no dropdown here -->
     <input type="text" id="sensorNo" placeholder="Sensor No.">
     <input type="date" id="outDate">
     <input type="date" id="dueDate">
     <input type="text" id="company" placeholder="Company Name">
-
+    <input type="text" id="lagerPlace" placeholder="Lager Place">
     <select id="status">
         <option value="">Select Status</option>
         <option value="Sold">Sold</option>
@@ -155,6 +153,7 @@
             <th>Out Date</th>
             <th>Due Date</th>
             <th>Company</th>
+            <th>Lager Place</th>
             <th>Status</th>
             <th>Actions</th>
         </tr>
@@ -169,16 +168,14 @@
     <div class="modal-content">
         <h3>Edit Sensor</h3>
 
-        <select id="editType">
-            <option value="Tscan-4.0">Tscan-4.0</option>
-            <option value="Tscan-4.1">Tscan-4.1</option>
-            <option value="Tscan-5.0">Tscan-5.0</option>
-        </select>
+        <!-- Sensor type: read-only -->
+        <input type="text" id="editType" class="readonly" readonly>
 
         <input type="text" id="editNo">
         <input type="date" id="editOut">
         <input type="date" id="editDue">
         <input type="text" id="editCompany">
+        <input type="text" id="editLagerPlace">
 
         <select id="editStatus">
             <option value="Sold">Sold</option>
@@ -202,34 +199,63 @@ function save() {
     localStorage.setItem("sensors", JSON.stringify(sensors));
 }
 
-function addSensor() {
-    const sensorType = sensorType.value;
-    const sensorNo = sensorNo.value;
-    const outDate = outDate.value;
-    const dueDate = dueDate.value;
-    const company = company.value;
-    const status = status.value;
+// Auto-detect sensor type from sensor number
+function getSensorType(sensorNo) {
+    const n = parseInt(sensorNo, 10);
+    if (isNaN(n)) return "";
 
-    if (!sensorType || !sensorNo || !outDate) {
-        alert("Sensor Type, Sensor No. and Out Date are required");
+    if (n >= 1 && n <= 100) return "Tscan-4.0";
+    if (n >= 101 && n <= 200) return "Tscan-4.1";
+    if (n >= 301) return "Tscan-5.0";
+
+    return "";
+}
+
+function addSensor() {
+    const sensorNoEl = document.getElementById("sensorNo");
+    const outDateEl = document.getElementById("outDate");
+    const dueDateEl = document.getElementById("dueDate");
+    const companyEl = document.getElementById("company");
+    const lagerPlaceEl = document.getElementById("lagerPlace");
+    const statusEl = document.getElementById("status");
+
+    const sensorNo = sensorNoEl.value.trim();
+    const outDate = outDateEl.value;
+    const dueDate = dueDateEl.value;
+    const company = companyEl.value.trim();
+    const lagerPlace = lagerPlaceEl.value.trim();
+    const status = statusEl.value;
+
+    const sensorType = getSensorType(sensorNo);
+
+    if (!sensorNo || !outDate || !sensorType) {
+        alert("Valid Sensor No. (with type), and Out Date are required.\nCheck number ranges: 1–100, 101–200, 301+");
         return;
     }
 
-    sensors.push({ sensorType, sensorNo, outDate, dueDate, company, status });
+    sensors.push({ sensorType, sensorNo, outDate, dueDate, company, lagerPlace, status });
     save();
     render();
+
+    sensorNoEl.value = "";
+    outDateEl.value = "";
+    dueDateEl.value = "";
+    companyEl.value = "";
+    lagerPlaceEl.value = "";
+    statusEl.value = "";
 }
 
 function openEdit(index) {
     editIndex = index;
     const s = sensors[index];
 
-    editType.value = s.sensorType;
-    editNo.value = s.sensorNo;
-    editOut.value = s.outDate;
-    editDue.value = s.dueDate;
-    editCompany.value = s.company;
-    editStatus.value = s.status;
+    document.getElementById("editType").value = s.sensorType;
+    document.getElementById("editNo").value = s.sensorNo;
+    document.getElementById("editOut").value = s.outDate;
+    document.getElementById("editDue").value = s.dueDate || "";
+    document.getElementById("editCompany").value = s.company || "";
+    document.getElementById("editLagerPlace").value = s.lagerPlace || "";
+    document.getElementById("editStatus").value = s.status || "";
 
     document.getElementById("editModal").style.display = "flex";
 }
@@ -242,15 +268,20 @@ function saveEdit() {
     const old = sensors[editIndex];
 
     const updated = {
-        sensorType: editType.value,
-        sensorNo: editNo.value,
-        outDate: editOut.value,
-        dueDate: editDue.value,
-        company: editCompany.value,
-        status: editStatus.value
+        sensorType: old.sensorType, // fixed, not editable
+        sensorNo: document.getElementById("editNo").value.trim(),
+        outDate: document.getElementById("editOut").value,
+        dueDate: document.getElementById("editDue").value,
+        company: document.getElementById("editCompany").value.trim(),
+        lagerPlace: document.getElementById("editLagerPlace").value.trim(),
+        status: document.getElementById("editStatus").value
     };
 
-    // Check if anything changed
+    if (!updated.sensorNo || !updated.outDate) {
+        alert("Sensor No. and Out Date cannot be empty");
+        return;
+    }
+
     const changed = JSON.stringify(old) !== JSON.stringify(updated);
 
     if (changed) {
@@ -296,6 +327,7 @@ function render() {
             <td>${s.outDate}</td>
             <td>${s.dueDate || "-"}</td>
             <td>${s.company || "-"}</td>
+            <td>${s.lagerPlace || "-"}</td>
             <td>${s.status || "-"}</td>
             <td>
                 <button class="action-btn edit-btn" onclick="openEdit(${index})">Edit</button>
